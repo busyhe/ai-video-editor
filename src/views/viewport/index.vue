@@ -46,7 +46,7 @@
 				</div>
 			</div>
 		</div>
-		<el-alert title="轨道中的数字人仅支持预览动态形象，合成后可查看口型效果" type="info" show-icon />
+		<!-- <el-alert title="轨道中的数字人仅支持预览动态形象，合成后可查看口型效果" type="info" show-icon /> -->
 	</div>
 </template>
 

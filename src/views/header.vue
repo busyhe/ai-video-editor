@@ -24,24 +24,6 @@
 		<SwitchTheme></SwitchTheme>
 		<el-button type="primary" icon="Monitor" @click="generateStore.compound()">合成视频</el-button>
 		<el-button text type="primary" icon="Collection" @click="recordStore.saveProject()">保存项目</el-button>
-		<yigee-login :account-info="accountStore.info" @success="accountStore.loadTokensinfo()">
-			<template #info="{ logout }">
-				<el-popover placement="bottom" :width="80">
-					<template #reference>
-						<el-avatar class="notlogin" :size="34" :src="accountStore.info.avatar">
-							{{ accountStore.info.name?.substring(0, 2) }}
-						</el-avatar>
-					</template>
-					<div style="text-align: center;">
-						<div style="padding: 10px;">
-							{{ accountStore.tokens.quantity }} 墨豆
-							<el-button link icon="Refresh" @click="accountStore.loadTokensinfo()"></el-button>
-						</div>
-						<el-button text icon="SwitchButton" @click="logout()">退出登录</el-button>
-					</div>
-				</el-popover>
-			</template>
-		</yigee-login>
 	</div>
 </template>
 
@@ -50,9 +32,6 @@ import SwitchTheme from '../components/switch-theme.vue'
 import {
 	ref,
 } from 'vue'
-import {
-	useAccountStore
-} from '../store/account.js'
 import {
 	useGlobalStore
 } from '../store/global.js'
@@ -66,7 +45,6 @@ import {
 const recordStore = useRecordStore()
 const generateStore = useGenerateStore()
 const globalStore = useGlobalStore()
-const accountStore = useAccountStore()
 const editTitle = ref(false)
 
 const onBack = () => {

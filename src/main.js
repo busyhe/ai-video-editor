@@ -25,9 +25,8 @@ import "@imengyu/vue3-context-menu/lib/vue3-context-menu.css";
 import ContextMenu from "@imengyu/vue3-context-menu";
 // 引入动画
 import "animate.css";
-// 引入组件
-import yigeeLogin from "yigee-login";
-import "yigee-login/dist/style.css";
+// 引入 Mock 服务 (仅在开发环境启用)
+import './mock'
 
 const app = createApp(App);
 app.use(ElementPlus, {
@@ -38,7 +37,6 @@ const pinia = createPinia();
 pinia.use(piniaPluginPersistedstate);
 app.use(pinia);
 app.use(ContextMenu);
-app.use(yigeeLogin);
 
 for (let key in ElIconModules) app.component(key, ElIconModules[key]);
 app.component("font-awesome-icon", FontAwesomeIcon);

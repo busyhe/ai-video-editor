@@ -227,7 +227,6 @@
 	}
 
 	onMounted(() => {
-		load()
 	})
 
 	defineExpose({

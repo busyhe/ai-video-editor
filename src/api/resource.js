@@ -1,23 +1,37 @@
 import axios from '../axios/index.js'
 
-export async function loadResource(type, current, size) {
+export async function loadResource(type, current, size, keyword) {
 	return await axios({
 		method: 'get',
 		url: import.meta.env.VITE_APP_BATCH_SERVER + '/resource/list',
 		params: {
 			type,
 			current,
-			size
+			size,
+			keyword
 		}
 	})
 }
 
-export async function count(type) {
+export async function count(type, keyword) {
 	return await axios({
 		method: 'get',
 		url: import.meta.env.VITE_APP_BATCH_SERVER + '/resource/count',
 		params: {
-			type
+			type,
+			keyword
+		}
+	})
+}
+
+export async function search(keyword, current, size) {
+	return await axios({
+		method: 'get',
+		url: import.meta.env.VITE_APP_BATCH_SERVER + '/resource/search',
+		params: {
+			keyword,
+			current,
+			size
 		}
 	})
 }
