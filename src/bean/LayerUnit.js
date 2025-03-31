@@ -55,19 +55,19 @@ export default class LayerUnit {
 		return unit;
 	}
 
-	// split(ratio) {
-	// 	const start = this._durationStart
-	// 	const end = this._durationEnd
-	// 	const splitLine = parseInt((end - start) * ratio);
-	// 	this._durationEnd = start + splitLine;
-	// 	this.track.w = (this._durationEnd - this._durationStart) * this.trackStore.milliscondWidth;
-	// 	const unit = this.clone();
-	// 	unit._durationStart = start + splitLine;
-	// 	unit._durationEnd = end;
-	// 	unit.track.x = this.track.x + this.track.w
-	// 	unit.track.w = (unit._durationEnd - unit._durationStart) * this.trackStore.milliscondWidth;
-	// 	return unit;
-	// }
+	split(ratio) {
+		const start = this._durationStart
+		const end = this._durationEnd
+		const splitLine = parseInt((end - start) * ratio);
+		this._durationEnd = start + splitLine;
+		this.track.w = (this._durationEnd - this._durationStart) * this.trackStore.milliscondWidth;
+		const unit = this.clone();
+		unit._durationStart = start + splitLine;
+		unit._durationEnd = end;
+		unit.track.x = this.track.x + this.track.w
+		unit.track.w = (unit._durationEnd - unit._durationStart) * this.trackStore.milliscondWidth;
+		return unit;
+	}
 
 	get view() {
 		if (this.resource) {
@@ -135,5 +135,4 @@ export default class LayerUnit {
 		unit.muted = data.muted
 		return unit;
 	}
-
 }
