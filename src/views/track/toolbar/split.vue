@@ -16,14 +16,19 @@
 		useTrackStore
 	} from '../../../store/track.js'
 	import {
-		nextTick
+		nextTick,
+		watch
 	} from 'vue'
 	import {
 		ElNotification
 	} from 'element-plus'
 
 	const layersDataStore = useLayersDataStore()
-	const trackStore = useTrackStore()
+	const trackStore = useTrackStore()	
+
+	watch(layersDataStore.activeUnit, (newVal) => {
+		console.debug('[DEBUG__toolbar/split.vue-newVal]', newVal)
+	})
 
 	const onSplit = () => {
 		if (trackStore.seekerLocation > layersDataStore.activeUnit.track.location.left &&

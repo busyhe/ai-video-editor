@@ -26,8 +26,7 @@
 				</el-container>
 				<WindowResize direction="column"></WindowResize>
 				<!-- 轨道 -->
-				<Track ref="trackRef">
-				</Track>
+				<Track ref="trackRef" />
 			</el-container>
 		</el-container>
 		<el-footer ref="footerRef">

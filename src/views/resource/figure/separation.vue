@@ -97,13 +97,13 @@
 	}
 
 	const open = () => {
-		if (!accountStore.account) {
-			ElNotification({
-				title: '请登录后重试。',
-				type: 'warning',
-			})
-			return;
-		}
+		// if (!accountStore.account) {
+		// 	ElNotification({
+		// 		title: '请登录后重试。',
+		// 		type: 'warning',
+		// 	})
+		// 	return;
+		// }
 		dialogVisible.value = true
 	}
 

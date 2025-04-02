@@ -12,13 +12,7 @@
         </Item>
       </div>
     </el-scrollbar>
-    <div
-      v-show="
-        accountStore.authorities != null &&
-        accountStore.authorities.includes('ai_video_admin')
-      "
-      class="res-menu"
-    >
+    <div class="res-menu">
       <Item @click="manageRef.open()">
         <svg class="icon" aria-hidden="true">
           <use xlink:href="#resource"></use>
@@ -26,7 +20,7 @@
         <div>公共资源</div>
       </Item>
     </div>
-    <div v-show="accountStore.id" class="video-menu">
+    <div class="video-menu">
       <Item @click="videosRef.open()">
         <svg class="icon" aria-hidden="true">
           <use xlink:href="#video"></use>
@@ -34,7 +28,7 @@
         <div>我的视频</div>
       </Item>
     </div>
-    <div v-show="accountStore.id" class="project-menu">
+    <div class="project-menu">
       <Item @click="projectRef.open()">
         <svg class="icon" aria-hidden="true">
           <use xlink:href="#project"></use>
@@ -42,7 +36,7 @@
         <div>项目管理</div>
       </Item>
     </div>
-    <div v-show="accountStore.id" class="work-menu">
+    <div class="work-menu">
       <Item @click="menuStore.jobProgressDialogVisible = true">
         <svg class="icon" aria-hidden="true">
           <use xlink:href="#work"></use>

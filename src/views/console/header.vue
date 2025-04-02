@@ -75,13 +75,13 @@
 		editTitle.value = false
 	}
 	const compound = async () => {
-		if (!accountStore.account) {
-			ElNotification({
-				title: '请登录后重试。',
-				type: 'warning',
-			})
-			return;
-		}
+		// if (!accountStore.account) {
+		// 	ElNotification({
+		// 		title: '请登录后重试。',
+		// 		type: 'warning',
+		// 	})
+		// 	return;
+		// }
 		loading.value = true
 		const options = {
 			"samplingRate": 44100,

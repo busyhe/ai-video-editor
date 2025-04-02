@@ -113,13 +113,13 @@
 	const type = ref('video')
 
 	const uploadClick = () => {
-		if (!accountStore.account) {
-			ElNotification({
-				title: '请登录后重试。',
-				type: 'warning',
-			})
-			return;
-		}
+		// if (!accountStore.account) {
+		// 	ElNotification({
+		// 		title: '请登录后重试。',
+		// 		type: 'warning',
+		// 	})
+		// 	return;
+		// }
 	}
 
 	const handleUpload = async (e) => {

@@ -89,25 +89,37 @@ export const useRecordStore = defineStore(
       }
     };
     const saveProject = () => {
-      if (accountStore.id) {
-        ElNotification({
-          title: "项目已保存",
-          type: "success",
-        });
-        current.value = layersDataStore.stringify;
-        const data = {
-          layersData: layersDataStore.stringify,
-          subtitleData: subtitleDataStore.stringify,
-        };
-        save(projectId.value, globalStore.title, JSON.stringify(data)).then(
-          (pid) => router.push("/editor/" + pid)
-        );
-      } else {
-        ElNotification({
-          title: "请登录后重试。",
-          type: "error",
-        });
-      }
+      ElNotification({
+        title: "项目已保存",
+        type: "success",
+      });
+      current.value = layersDataStore.stringify;
+      const data = {
+        layersData: layersDataStore.stringify,
+        subtitleData: subtitleDataStore.stringify,
+      };
+      save(projectId.value, globalStore.title, JSON.stringify(data)).then(
+        (pid) => router.push("/editor/" + pid)
+      );
+      // if (accountStore.id) {
+      //   ElNotification({
+      //     title: "项目已保存",
+      //     type: "success",
+      //   });
+      //   current.value = layersDataStore.stringify;
+      //   const data = {
+      //     layersData: layersDataStore.stringify,
+      //     subtitleData: subtitleDataStore.stringify,
+      //   };
+      //   save(projectId.value, globalStore.title, JSON.stringify(data)).then(
+      //     (pid) => router.push("/editor/" + pid)
+      //   );
+      // } else {
+      //   ElNotification({
+      //     title: "请登录后重试。",
+      //     type: "error",
+      //   });
+      // }
     };
     return {
       dialogVisible,
