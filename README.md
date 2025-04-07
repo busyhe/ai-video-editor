@@ -1,5 +1,7 @@
 # AI Video Editor
 
+https://ai-video.yigee.cn/editor/
+
 A video editor application enhanced with AI capabilities.
 
 ## Development Setup

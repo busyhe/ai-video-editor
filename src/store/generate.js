@@ -36,29 +36,9 @@ export const useGenerateStore = defineStore("generate", {
     async compound() {
       // 获取各个store实例，用于状态管理和数据获取
       const globalStore = useGlobalStore();
-      const accountStore = useAccountStore();
       const layersDataStore = useLayersDataStore();
       const menuStore = useMenuStore();
       const subtitleDataStore = useSubtitleDataStore();
-      
-      // 注释的登录检查和墨豆点数校验逻辑
-      // if (!accountStore.account) {
-      //   ElNotification({
-      //     title: "请登录后重试。",
-      //     type: "warning",
-      //   });
-      //   return;
-      // }
-      // if (
-      //   parseInt(layersDataStore.videoTotalDuration / 1000) >
-      //   accountStore.tokens.quantity
-      // ) {
-      //   ElNotification({
-      //     title: "墨豆点数不足请充值。",
-      //     type: "warning",
-      //   });
-      //   return;
-      // }
       
       // 设置加载状态为true，表示开始处理
       this.loading = true;
@@ -312,12 +292,6 @@ export const useGenerateStore = defineStore("generate", {
        * 如果所有条件满足，开始执行视频合成
        */
       if (check) {
-        // // 扣除用户墨豆点数
-        // accountStore.expendTokens(
-        //   parseInt(layersDataStore.videoTotalDuration / 1000),
-        //   "合成视频"
-        // );
-        
         // 提交合成作业到服务器
         const result = await job(
           "channel-synthesis-job", // 作业类型
