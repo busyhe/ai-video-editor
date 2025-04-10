@@ -3,7 +3,8 @@
  * @description 视频生成相关的状态管理模块，负责视频合成和处理的核心逻辑
  */
 import { defineStore } from "pinia";
-import { ElNotification } from "element-plus";
+import { ElNotification, ElMessage, ElMessageBox } from "element-plus";
+import { h } from "vue";
 import { useAccountStore } from "./account.js";
 import { useLayersDataStore } from "./layers.js";
 import { useMenuStore } from "./menu.js";
@@ -12,6 +13,118 @@ import { job } from "../api/batch.js";
 import { useSubtitleDataStore } from "./data/subtitle.js";
 import { createSrt } from "../utils/srt.js";
 import { upload, filePath } from "../api/file.js";
+import {
+  Combinator,
+  ImgClip,
+  MP4Clip,
+  EmbedSubtitlesClip,
+  OffscreenSprite,
+  AudioClip,
+} from '@webav/av-cliper';
+
+// 配置常量，集中管理全局配置参数
+const CONFIG = {
+  VIDEO: {
+    WIDTH: 1920,
+    HEIGHT: 1080,
+    SAMPLE_RATE: 44100,
+    CODE_RATE: "192k",
+    CODEC: "libx264",
+    FPS: 25,
+    BG_COLOR: 'black',
+  },
+  DEFAULT_HOSTNAME: 'http://localhost:5173',
+  MICROSECONDS_MULTIPLIER: 1e6,
+};
+
+/**
+ * 创建文件写入器
+ * @param {string} extName - 导出文件扩展名
+ * @returns {Promise<FileSystemWritableFileStream>} 可写文件流
+ */
+async function createFileWriter(extName) {
+  try {
+    const fileHandle = await window.showSaveFilePicker({
+      suggestedName: `WebAV-export-${Date.now()}.${extName}`,
+    });
+    return fileHandle.createWritable();
+  } catch (error) {
+    console.error('Failed to create file writer:', error);
+    throw new Error('无法创建文件导出器，请检查浏览器权限');
+  }
+}
+
+/**
+ * 资源URL前缀处理
+ * @param {string} url - 资源URL
+ * @returns {string} 完整资源URL
+ */
+const getAssetUrl = (url) => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${CONFIG.DEFAULT_HOSTNAME}${url}`;
+};
+
+/**
+ * 创建进度消息框
+ * @returns {Object} 消息框实例
+ */
+const createProgressMessageBox = () => {
+  return ElMessageBox({
+    title: '视频合成进度',
+    message: h('div', {
+      style: {
+        textAlign: 'center',
+        marginTop: '20px',
+        marginBottom: '20px',
+      }
+    }, [
+      h('div', { style: 'margin-bottom: 15px' }, '正在合成视频，请耐心等待...'),
+      h('el-progress', {
+        percentage: 0,
+        striped: true,
+        'striped-flow': true,
+        duration: 100,
+        strokeWidth: 20,
+        textInside: true,
+      }),
+      h('div', {
+        style: 'margin-top: 15px; font-size: 12px; color: #999'
+      }, '合成过程中请勿关闭页面')
+    ]),
+    showCancelButton: false,
+    showConfirmButton: false,
+    closeOnClickModal: false,
+    closeOnPressEscape: false,
+    closeOnHashChange: false,
+  });
+};
+
+/**
+ * 更新进度条UI
+ * @param {number} progress - 进度百分比(0-100)
+ */
+const updateProgressUI = (progress) => {
+  try {
+    const progressComponent = document.querySelector('.el-message-box .el-progress .el-progress__text');
+    if (progressComponent) {
+      progressComponent.textContent = `${progress}%`;
+    }
+    
+    const progressBarInner = document.querySelector('.el-message-box .el-progress .el-progress-bar__inner');
+    if (progressBarInner) {
+      progressBarInner.style.width = `${progress}%`;
+    }
+  } catch (err) {
+    console.error('Failed to update progress UI', err);
+  }
+};
+
+/**
+ * 关闭消息框
+ */
+const closeMessageBox = () => {
+  document.querySelector('.el-message-box__close')?.click();
+};
 
 /**
  * @description 视频生成功能的状态管理存储
@@ -24,295 +137,515 @@ export const useGenerateStore = defineStore("generate", {
    */
   state: () => ({
     loading: false, // 加载状态标识，表示是否正在进行视频合成
+    generating: false, // 视频生成中状态，用于禁用合成按钮
+    progress: 0, // 当前视频生成进度，百分比，0-100
   }),
   /**
    * @description 操作方法集合
    */
   actions: {
     /**
+     * 检查是否可以开始合成
+     * @returns {boolean} 是否可以继续合成
+     */
+    checkBeforeCompound() {
+      if (this.generating) {
+        ElNotification({
+          title: "操作提示",
+          message: "视频正在合成中，请稍候...",
+          type: "warning",
+        });
+        return false;
+      }
+      return true;
+    },
+
+    /**
+     * 处理主音频层单元
+     * @param {Object} layersDataStore - 图层数据存储
+     * @returns {Array} 处理后的单元数组
+     */
+    processMainAudioLayer(layersDataStore) {
+      const units = [];
+      if (!layersDataStore.mainAudioLayer) return units;
+      
+      let time = 0;
+      layersDataStore.mainAudioLayer.units.forEach((unit) => {
+        if (time < unit.duration.left) {
+          units.push({
+            type: "main-audio-blank",
+            duration: unit.duration.left - time,
+          });
+        }
+        
+        units.push({
+          type: "main-audio",
+          url: unit.resource.url,
+          start: unit.duration.start,
+          end: unit.duration.end,
+          duration: unit.duration.duration,
+          muted: unit.muted
+        });
+        
+        time = unit.duration.right;
+      });
+      
+      // 填充剩余时间
+      if (time < layersDataStore.videoTotalDuration) {
+        units.push({
+          type: "main-audio-blank",
+          duration: layersDataStore.videoTotalDuration - time,
+        });
+      }
+      
+      return units;
+    },
+
+    /**
+     * 处理主视频层单元
+     * @param {Object} layersDataStore - 图层数据存储
+     * @returns {Array} 处理后的单元数组
+     */
+    processMainVideoLayer(layersDataStore) {
+      const units = [];
+      if (!layersDataStore.mainVideoLayer) return units;
+      
+      let time = 0;
+      layersDataStore.mainVideoLayer.units.forEach((unit) => {
+        if (time < unit.duration.left) {
+          units.push({
+            type: "main-video-blank",
+            duration: unit.duration.left - time,
+          });
+        }
+        
+        units.push({
+          type: "main-" + unit.type,
+          url: unit.resource.url,
+          start: unit.duration.start,
+          end: unit.duration.end,
+          duration: unit.duration.duration,
+          scale: {
+            x: unit.scene.scale.x,
+            y: unit.scene.scale.y,
+          },
+          overlay: {
+            x: unit.scene.position.x,
+            y: unit.scene.position.y,
+          },
+          muted: unit.muted
+        });
+        
+        time = unit.duration.right;
+      });
+      
+      // 填充剩余时间
+      if (time < layersDataStore.videoTotalDuration) {
+        units.push({
+          type: "main-video-blank",
+          duration: layersDataStore.videoTotalDuration - time,
+        });
+      }
+      
+      return units;
+    },
+
+    /**
+     * 处理图层单元
+     * @param {Object} layer - 图层对象
+     * @param {boolean} check - 检查引用
+     * @returns {Object} 处理结果 {units, isValid}
+     */
+    processLayerUnits(layer, check) {
+      const units = [];
+      let isValid = true;
+
+      switch (layer.type) {
+        case "audio":
+          layer.units.forEach((unit) => {
+            units.push({
+              type: "audio",
+              url: unit.resource.url,
+              start: unit.duration.start,
+              end: unit.duration.end,
+              duration: unit.duration.duration,
+              anchor: unit.duration.left,
+            });
+          });
+          break;
+          
+        case "video":
+          layer.units.forEach((unit) => {
+            units.push({
+              type: "video",
+              url: unit.resource.url,
+              start: unit.duration.start,
+              end: unit.duration.end,
+              duration: unit.duration.duration,
+              anchor: unit.duration.left,
+              scale: {
+                x: unit.scene.scale.x,
+                y: unit.scene.scale.y,
+              },
+              overlay: {
+                x: unit.scene.position.x,
+                y: unit.scene.position.y,
+              },
+            });
+          });
+          break;
+          
+        case "image":
+          layer.units.forEach((unit) => {
+            units.push({
+              type: "image",
+              url: unit.resource.url,
+              duration: unit.duration.duration,
+              anchor: unit.duration.left,
+              scale: {
+                x: unit.scene.scale.x,
+                y: unit.scene.scale.y,
+              },
+              overlay: {
+                x: unit.scene.position.x,
+                y: unit.scene.position.y,
+              },
+            });
+          });
+          break;
+          
+        case "figure":
+          layer.units.forEach((unit) => {
+            if (unit.resource.audio == null) {
+              ElNotification({
+                title: "请为数字人添加配音。",
+                type: "warning",
+              });
+              isValid = false;
+            } else {
+              units.push({
+                type: "figure-picture",
+                avatar: unit.resource.url,
+                audio: unit.resource.audio.url,
+                anchor: unit.duration.left,
+                scale: {
+                  x: unit.scene.scale.x,
+                  y: unit.scene.scale.y,
+                },
+                overlay: {
+                  x: unit.scene.position.x,
+                  y: unit.scene.position.y,
+                },
+              });
+            }
+          });
+          break;
+      }
+      
+      return { units, isValid };
+    },
+
+    /**
+     * 处理所有其他图层
+     * @param {Object} layersDataStore - 图层数据存储
+     * @param {boolean} check - 检查引用
+     * @returns {Object} 处理结果 {units, isValid}
+     */
+    processOtherLayers(layersDataStore, check) {
+      let allUnits = [];
+      let isValid = true;
+      
+      // 复制并反转图层数组（从上到下处理）
+      const layers = [...layersDataStore.layers].reverse();
+      
+      // 处理非主图层
+      layers.forEach((layer) => {
+        if (
+          layer.id !== layersDataStore.mainVideoLayerId &&
+          layer.id !== layersDataStore.mainAudioLayerId
+        ) {
+          const { units, isValid: layerValid } = this.processLayerUnits(layer, check);
+          allUnits = [...allUnits, ...units];
+          if (!layerValid) isValid = false;
+        }
+      });
+      
+      return { units: allUnits, isValid };
+    },
+
+    /**
+     * 处理字幕数据并上传
+     * @param {Object} subtitleDataStore - 字幕数据存储
+     * @returns {Promise<Object|null>} 字幕配置对象或null
+     */
+    async processSubtitles(subtitleDataStore) {
+      if (!subtitleDataStore.visible || subtitleDataStore.data.length === 0) {
+        return null;
+      }
+      
+      try {
+        // 创建SRT格式的字幕内容
+        const srtContent = createSrt(subtitleDataStore.data);
+        
+        // 创建并上传SRT文件
+        const blob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
+        const file = new File([blob], "spacegt.srt", { type: blob.type });
+        const res = await upload(file, "ai-video/source/srt");
+        
+        return {
+          url: filePath + res.url,
+        };
+      } catch (error) {
+        console.error("字幕处理失败:", error);
+        ElNotification({
+          title: "字幕处理失败",
+          message: error.message || "上传字幕文件时发生错误",
+          type: "error",
+        });
+        return null;
+      }
+    },
+
+    /**
+     * 创建媒体精灵
+     * @param {Object} unit - 媒体单元对象
+     * @returns {Promise<Object|null>} 精灵对象或null
+     */
+    async createSprite(unit) {
+      try {
+        const res = await fetch(getAssetUrl(unit.url));
+        const body = res.body;
+        if (!body) return null;
+        
+        const { MICROSECONDS_MULTIPLIER } = CONFIG;
+        
+        if (unit.type.includes('video')) {
+          const videoSprite = new OffscreenSprite(new MP4Clip(body));
+          if (unit.anchor !== undefined) {
+            videoSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
+            videoSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
+          }
+          videoSprite.rect.x = unit.overlay?.x || 0;
+          videoSprite.rect.y = unit.overlay?.y || 0;
+          return { sprite: videoSprite, isMain: unit.type.startsWith('main') };
+        } 
+        
+        if (unit.type.includes('image')) {
+          const imgSprite = new OffscreenSprite(new ImgClip(body));
+          imgSprite.time.offset = ((unit.anchor || 0) / 1000) * MICROSECONDS_MULTIPLIER;
+          imgSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
+          imgSprite.rect.x = unit.overlay?.x || 0;
+          imgSprite.rect.y = unit.overlay?.y || 0;
+          return { sprite: imgSprite, isMain: unit.type.startsWith('main') };
+        } 
+        
+        if (unit.type.includes('audio')) {
+          const audioSprite = new OffscreenSprite(new AudioClip(body));
+          audioSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
+          audioSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
+          return { sprite: audioSprite, isMain: unit.type.startsWith('main') };
+        }
+        
+        return null;
+      } catch (error) {
+        console.error(`创建媒体精灵失败 (${unit.type}):`, error);
+        return null;
+      }
+    },
+
+    /**
+     * 创建字幕精灵
+     * @returns {Promise<Object|null>} 字幕精灵对象或null
+     */
+    async createSubtitleSprite() {
+      try {
+        const srtUrl = getAssetUrl('/assets/srt/1.srt');
+        const text = await (await fetch(srtUrl)).text();
+        const { WIDTH, HEIGHT } = CONFIG.VIDEO;
+        
+        const srtSprite = new OffscreenSprite(
+          new EmbedSubtitlesClip(text, {
+            videoWidth: WIDTH,
+            videoHeight: HEIGHT
+          })
+        );
+        
+        return { sprite: srtSprite, isMain: false };
+      } catch (error) {
+        console.error('创建字幕精灵失败:', error);
+        return null;
+      }
+    },
+
+    /**
+     * 合成视频并保存
+     * @param {Object} com - 合成器实例
+     * @returns {Promise<boolean>} 是否成功
+     */
+    async renderAndSaveVideo(com) {
+      const timeStart = performance.now();
+      let fileStream;
+      
+      try {
+        fileStream = await createFileWriter('mp4');
+        this.progress = 0;
+        
+        // 显示进度对话框
+        const messageBoxInstance = createProgressMessageBox();
+        
+        // 注册进度事件处理器
+        com.on('OutputProgress', (progress) => {
+          this.progress = Math.round(progress * 100);
+          console.debug('[DEBUG__progress]', this.progress);
+          
+          if (messageBoxInstance) {
+            updateProgressUI(this.progress);
+          }
+        });
+        
+        // 处理输出
+        await com.output().pipeTo(fileStream);
+        
+        // 关闭消息框
+        closeMessageBox();
+        
+        // 显示完成通知
+        ElNotification({
+          title: '视频合成完成',
+          message: `视频合成耗时: ${Math.round(performance.now() - timeStart)}ms`,
+          type: 'success',
+          duration: 5000,
+        });
+        
+        return true;
+      } catch (error) {
+        console.error('Video generation error:', error);
+        
+        // 关闭消息框
+        closeMessageBox();
+        
+        // 显示错误通知
+        ElNotification({
+          title: '视频合成失败',
+          message: error.message || '发生未知错误，请重试',
+          type: 'error',
+          duration: 5000,
+        });
+        
+        return false;
+      } finally {
+        console.debug('[DEBUG__render-time]', `合成耗时: ${Math.round(performance.now() - timeStart)}ms`);
+      }
+    },
+
+    /**
      * @description 合成视频的主要方法，将各个图层、资源整合为最终视频
      * @returns {Promise<void>}
      */
     async compound() {
-      // 获取各个store实例，用于状态管理和数据获取
+      // 初始检查，如果已经在生成中，阻止重复操作
+      if (!this.checkBeforeCompound()) return;
+
+      // 获取各个store实例
       const globalStore = useGlobalStore();
       const layersDataStore = useLayersDataStore();
       const menuStore = useMenuStore();
       const subtitleDataStore = useSubtitleDataStore();
-      
-      // 设置加载状态为true，表示开始处理
+
+      // 设置状态标识
       this.loading = true;
-      let check = true; // 合成前的检查标志，用于确认是否满足所有合成条件
-      
-      /**
-       * 定义视频合成的基本参数配置
-       * @property {number} samplingRate - 音频采样率，单位Hz
-       * @property {string} codeRate - 视频码率
-       * @property {number} width - 视频宽度，单位像素
-       * @property {number} height - 视频高度，单位像素
-       * @property {string} codec - 视频编码器
-       * @property {number} fps - 帧率，每秒帧数
-       */
-      const options = {
-        samplingRate: 44100,
-        codeRate: "192k",
-        width: 1920,
-        height: 1080,
-        codec: "libx264",
-        fps: 25,
-      };
-      
-      // 定义合成单元数组，用于存储所有要合成的媒体片段
-      const units = [];
-      
-      /**
-       * 处理主音频层
-       * 将主音频层的所有单元添加到合成单元数组中，并在相应位置添加空白音频
-       */
-      if (layersDataStore.mainAudioLayer) {
-        let time = 0; // 当前处理到的时间点
-        layersDataStore.mainAudioLayer.units.forEach((unit) => {
-          // 如果当前时间点与下一个单元的起始时间有间隔，添加空白音频
-          if (time < unit.duration.left) {
-            units.push({
-              type: "main-audio-blank", // 空白音频类型
-              duration: unit.duration.left - time, // 空白时长
-            });
-          }
-          // 添加主音频单元
-          units.push({
-            type: "main-audio",
-            url: unit.resource.url, // 音频资源URL
-            start: unit.duration.start, // 音频起始时间
-            end: unit.duration.end, // 音频结束时间
-            duration: unit.duration.duration, // 音频持续时间
-          });
-          time = unit.duration.right; // 更新当前时间点
-        });
-        // 如果主音频结束后视频总时长还有剩余，添加最后的空白音频
-        if (time < layersDataStore.videoTotalDuration) {
-          units.push({
-            type: "main-audio-blank",
-            duration: layersDataStore.videoTotalDuration - time,
-          });
-        }
-      }
-      
-      /**
-       * 处理主视频层
-       * 将主视频层的所有单元添加到合成单元数组中，并在相应位置添加空白视频
-       */
-      if (layersDataStore.mainVideoLayer) {
-        let time = 0; // 当前处理到的时间点
-        layersDataStore.mainVideoLayer.units.forEach((unit) => {
-          // 如果当前时间点与下一个单元的起始时间有间隔，添加空白视频
-          if (time < unit.duration.left) {
-            units.push({
-              type: "main-video-blank", // 空白视频类型
-              duration: unit.duration.left - time, // 空白时长
-            });
-          }
-          // 添加主视频单元
-          units.push({
-            type: "main-" + unit.type, // 主视频类型标识
-            url: unit.resource.url, // 视频资源URL
-            start: unit.duration.start, // 视频起始时间
-            end: unit.duration.end, // 视频结束时间
-            duration: unit.duration.duration, // 视频持续时间
-            scale: { // 视频缩放比例
-              x: unit.scene.scale.x,
-              y: unit.scene.scale.y,
-            },
-            overlay: { // 视频在画面中的位置
-              x: unit.scene.position.x,
-              y: unit.scene.position.y,
-            },
-          });
-          time = unit.duration.right; // 更新当前时间点
-        });
-        // 如果主视频结束后视频总时长还有剩余，添加最后的空白视频
-        if (time < layersDataStore.videoTotalDuration) {
-          units.push({
-            type: "main-video-blank",
-            duration: layersDataStore.videoTotalDuration - time,
-          });
-        }
-      }
-      
-      /**
-       * 处理其他图层
-       * 复制图层数组并反转顺序（从上到下处理）
-       */
-      let layers = [...layersDataStore.layers];
-      layers.reverse();
-      
-      // 遍历所有图层，处理非主视频和主音频的图层
-      layers.forEach((layer) => {
-        if (
-          layer.id != layersDataStore.mainVideoLayerId &&
-          layer.id != layersDataStore.mainAudioLayerId
-        ) {
-          /**
-           * 处理音频图层
-           */
-          if (layer.type == "audio") {
-            layer.units.forEach((unit) => {
-              units.push({
-                type: "audio",
-                url: unit.resource.url, // 音频资源URL
-                start: unit.duration.start, // 音频起始时间
-                end: unit.duration.end, // 音频结束时间
-                duration: unit.duration.duration, // 音频持续时间
-                anchor: unit.duration.left, // 音频锚点（在时间轴上的位置）
-              });
-            });
-          }
-          
-          /**
-           * 处理视频图层
-           */
-          if (layer.type == "video") {
-            layer.units.forEach((unit) => {
-              units.push({
-                type: "video",
-                url: unit.resource.url, // 视频资源URL
-                start: unit.duration.start, // 视频起始时间
-                end: unit.duration.end, // 视频结束时间
-                duration: unit.duration.duration, // 视频持续时间
-                anchor: unit.duration.left, // 视频锚点（在时间轴上的位置）
-                scale: { // 视频缩放比例
-                  x: unit.scene.scale.x,
-                  y: unit.scene.scale.y,
-                },
-                overlay: { // 视频在画面中的位置
-                  x: unit.scene.position.x,
-                  y: unit.scene.position.y,
-                },
-              });
-            });
-          }
-          
-          /**
-           * 处理图片图层
-           */
-          if (layer.type == "image") {
-            layer.units.forEach((unit) => {
-              units.push({
-                type: "image",
-                url: unit.resource.url, // 图片资源URL
-                duration: unit.duration.duration, // 图片显示持续时间
-                anchor: unit.duration.left, // 图片锚点（在时间轴上的位置）
-                scale: { // 图片缩放比例
-                  x: unit.scene.scale.x,
-                  y: unit.scene.scale.y,
-                },
-                overlay: { // 图片在画面中的位置
-                  x: unit.scene.position.x,
-                  y: unit.scene.position.y,
-                },
-              });
-            });
-          }
-          
-          /**
-           * 处理数字人图层
-           */
-          if (layer.type == "figure") {
-            layer.units.forEach((unit) => {
-              // 检查数字人是否有配音，如果没有则提示错误
-              if (unit.resource.audio == null) {
-                ElNotification({
-                  title: "请为数字人添加配音。",
-                  type: "warning",
-                });
-                check = false; // 不满足合成条件
-              } else {
-                units.push({
-                  type: "figure-picture",
-                  avatar: unit.resource.url, // 数字人头像URL
-                  audio: unit.resource.audio.url, // 数字人配音URL
-                  anchor: unit.duration.left, // 数字人锚点（在时间轴上的位置）
-                  scale: { // 数字人缩放比例
-                    x: unit.scene.scale.x,
-                    y: unit.scene.scale.y,
-                  },
-                  overlay: { // 数字人在画面中的位置
-                    x: unit.scene.position.x,
-                    y: unit.scene.position.y,
-                  },
-                });
-              }
-            });
-          }
-        }
-      });
-      
-      // 将所有合成单元添加到选项中
-      options.units = units;
-      
-      /**
-       * 检查合成条件：
-       * 1. 主视频层必须有单元
-       * 2. 合成单元数组不能为空
-       */
-      if (
-        (layersDataStore.mainVideoLayer &&
-          layersDataStore.mainVideoLayer.units.length == 0) ||
-        options.units.length == 0
-      ) {
-        ElNotification({
-          title: "请添加图片或视频背景素材。",
-          type: "warning",
-        });
-        check = false; // 不满足合成条件
-      }
-      
-      /**
-       * 处理字幕
-       * 如果字幕可见且有字幕数据，将字幕转换为SRT文件并上传
-       */
-      if (subtitleDataStore.visible && subtitleDataStore.data.length > 0) {
-        // 创建SRT格式的字幕内容
-        const srtContent = createSrt(subtitleDataStore.data);
-        // 创建Blob对象
-        const blob = new Blob([srtContent], {
-          type: "text/plain;charset=utf-8",
-        });
-        // 创建File对象
-        const file = new File([blob], "spacegt.srt", { type: blob.type });
-        // 上传SRT文件
-        const res = await upload(file, "ai-video/source/srt");
-        // 添加字幕配置到选项中
-        options.subtitle = {
-          url: filePath + res.url,
+      this.generating = true;
+      let check = true;
+
+      try {
+        // 定义视频合成选项
+        const options = {
+          samplingRate: CONFIG.VIDEO.SAMPLE_RATE,
+          codeRate: CONFIG.VIDEO.CODE_RATE,
+          width: CONFIG.VIDEO.WIDTH,
+          height: CONFIG.VIDEO.HEIGHT,
+          codec: CONFIG.VIDEO.CODEC,
+          fps: CONFIG.VIDEO.FPS,
+          units: []
         };
-      }
-      
-      /**
-       * 如果所有条件满足，开始执行视频合成
-       */
-      if (check) {
-        // 提交合成作业到服务器
-        const result = await job(
-          "channel-synthesis-job", // 作业类型
-          globalStore.title, // 视频标题
-          options // 合成选项
-        );
+
+        // 处理主音频层
+        const mainAudioUnits = this.processMainAudioLayer(layersDataStore);
         
-        // 处理作业提交结果
-        if (result) {
-          // 显示成功通知
+        // 处理主视频层
+        const mainVideoUnits = this.processMainVideoLayer(layersDataStore);
+        
+        // 处理其他图层
+        const { units: otherUnits, isValid } = this.processOtherLayers(layersDataStore, check);
+        if (!isValid) check = false;
+        
+        // 合并所有单元
+        options.units = [...mainAudioUnits, ...mainVideoUnits, ...otherUnits];
+
+        // 验证所需资源
+        if (
+          (layersDataStore.mainVideoLayer &&
+            layersDataStore.mainVideoLayer.units.length === 0) ||
+          options.units.length === 0
+        ) {
           ElNotification({
-            title: "视频合成作业已提交",
-            type: "success",
+            title: "请添加图片或视频背景素材。",
+            type: "warning",
           });
-          // 显示作业进度对话框
-          menuStore.jobProgressDialogVisible = true;
+          check = false;
         }
+
+        // 处理字幕
+        const subtitleConfig = await this.processSubtitles(subtitleDataStore);
+        if (subtitleConfig) {
+          options.subtitle = subtitleConfig;
+        }
+
+        // 如果所有条件满足，开始执行视频合成
+        if (check) {
+          console.debug('[DEBUG__options]', options);
+
+          // 过滤出非空白单元
+          const contentUnits = options.units.filter(unit => !unit.type.includes('blank'));
+          
+          // 创建合成器
+          const combinator = new Combinator({
+            width: CONFIG.VIDEO.WIDTH,
+            height: CONFIG.VIDEO.HEIGHT,
+            bgColor: CONFIG.VIDEO.BG_COLOR,
+          });
+
+          // 创建所有媒体精灵
+          const spritePromises = contentUnits.map(unit => this.createSprite(unit));
+          
+          // 添加字幕精灵
+          spritePromises.push(this.createSubtitleSprite());
+
+          // 等待所有精灵创建完成
+          const sprites = (await Promise.all(spritePromises)).filter(Boolean);
+          
+          // 将所有精灵添加到合成器
+          for (const item of sprites) {
+            if (item) {
+              await combinator.addSprite(item.sprite, { main: item.isMain });
+            }
+          }
+
+          // 合成并保存视频
+          await this.renderAndSaveVideo(combinator);
+        }
+      } catch (error) {
+        console.error('Compound process error:', error);
+        ElNotification({
+          title: '视频合成过程中发生错误',
+          message: error.message || '请检查资源是否正确',
+          type: 'error',
+        });
+      } finally {
+        // 无论成功与否，最后都将状态重置
+        this.loading = false;
+        this.generating = false;
       }
-      
-      // 无论成功与否，最后都将加载状态设置为false
-      this.loading = false;
     },
   },
 });

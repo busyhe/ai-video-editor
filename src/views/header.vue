@@ -22,7 +22,14 @@
 	</div>
 	<div class="button-group">
 		<SwitchTheme></SwitchTheme>
-		<el-button type="primary" icon="Monitor" @click="generateStore.compound()">合成视频</el-button>
+		<el-button 
+			type="primary" 
+			icon="Monitor" 
+			@click="generateStore.compound()"
+			:loading="generateStore.generating"
+			:disabled="generateStore.generating">
+			{{ generateStore.generating ? '合成中 ' + generateStore.progress + '%' : '合成视频' }}
+		</el-button>
 		<el-button text type="primary" icon="Collection" @click="recordStore.saveProject()">保存项目</el-button>
 	</div>
 </template>

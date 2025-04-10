@@ -36,6 +36,12 @@
         <div>项目管理</div>
       </Item>
     </div>
+    <div class="client-export-menu">
+      <Item @click="openClientExporter()">
+        <el-icon><Download /></el-icon>
+        <div>前端导出</div>
+      </Item>
+    </div>
     <div class="work-menu">
       <Item @click="menuStore.jobProgressDialogVisible = true">
         <svg class="icon" aria-hidden="true">
@@ -61,6 +67,7 @@ import { ref, onMounted } from 'vue';
 import { useGlobalStore } from '../../store/global.js';
 import { useMenuStore } from '../../store/menu.js';
 import { useAccountStore } from '../../store/account.js';
+import { Download } from '@element-plus/icons-vue';
 
 const accountStore = useAccountStore();
 const menuStore = useMenuStore();
@@ -71,6 +78,8 @@ const jobsRef = ref();
 const videosRef = ref();
 const projectRef = ref();
 const manageRef = ref();
+const clientExporterRef = ref(null);
+
 const menuList = [
   // {
   // 	label: 'figure',
@@ -108,6 +117,23 @@ const onClick = (menu) => {
   emits('click', menu);
   globalStore.menu = menu.label;
 };
+
+function openClientExporter() {
+  if (!clientExporterRef.value) {
+    import('../../components/VideoExporter/dialog.vue').then(module => {
+      const { createApp, markRaw } = require('vue');
+      const VideoExporterDialog = markRaw(module.default);
+      const app = createApp(VideoExporterDialog);
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      const instance = app.mount(div);
+      clientExporterRef.value = instance;
+      instance.open();
+    });
+  } else {
+    clientExporterRef.value.open();
+  }
+}
 
 onMounted(() => {
   onClick(menuList.find((item) => item.label == active.value));
@@ -169,6 +195,20 @@ onMounted(() => {
 .project-menu .icon {
   width: 28px;
   height: 28px;
+}
+
+.client-export-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 1px solid var(--el-border-color);
+  padding: 6px;
+  text-align: center;
+}
+
+.client-export-menu .el-icon {
+  font-size: 24px;
+  margin-bottom: 4px;
 }
 
 .setting-menu {

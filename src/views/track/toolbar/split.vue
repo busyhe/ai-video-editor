@@ -26,10 +26,6 @@
 	const layersDataStore = useLayersDataStore()
 	const trackStore = useTrackStore()	
 
-	watch(layersDataStore.activeUnit, (newVal) => {
-		console.debug('[DEBUG__toolbar/split.vue-newVal]', newVal)
-	})
-
 	const onSplit = () => {
 		if (trackStore.seekerLocation > layersDataStore.activeUnit.track.location.left &&
 			trackStore.seekerLocation < layersDataStore.activeUnit.track.location.right) {
@@ -38,6 +34,8 @@
 				const ratio = width / layersDataStore.activeUnit.track.w
 				const newUnit = layersDataStore.activeUnit.split(ratio)
 				const layer = layersDataStore.getLayerByUnitId(layersDataStore.activeUnit.id)
+				console.debug('[DEBUG__toolbar/split.vue-newUnit]', newUnit)
+
 				nextTick(() => {
 					layer.units.push(newUnit)
 					layer.sort()

@@ -37,7 +37,6 @@ export default class AudioSource extends Source {
 	}
 
 	init() {
-		console.log(123)
 		return new Promise((resolve, reject) => {
 			this._audio = new Audio(this.url);
 			this._audio.addEventListener('canplaythrough', () => {

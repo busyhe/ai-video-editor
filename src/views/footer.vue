@@ -2,7 +2,8 @@
 	<div class="footer">
 		<el-alert :title="stateStore.alert?stateStore.alert:'状态栏'" type="info" show-icon :closable="false" />
 		<div class="short-message">
-
+			<el-button type="primary" size="small" @click="openClientExporter">前端合成导出</el-button>
+			
 			<el-tag type="info">网络状态
 				<el-text v-if="online" type="success" size="small">在线</el-text>
 				<el-text v-else type="danger" size="small">离线</el-text>
@@ -53,6 +54,7 @@
 	const layersDataStore = useLayersDataStore()
 	const adsorptionLineStore = useAdsorptionLineStore()
 	const online = useOnline()
+	const clientExporterRef = ref(null)
 
 	const openDebug = (state) => {
 		globalStore.debug = state
@@ -64,6 +66,23 @@
 	}
 	const openAutosave = () => {
 		recordStore.autosave = !recordStore.autosave;
+	}
+	
+	function openClientExporter() {
+		if (!clientExporterRef.value) {
+			import('../components/VideoExporter/dialog.vue').then(module => {
+				const { createApp, markRaw } = require('vue')
+				const VideoExporterDialog = markRaw(module.default)
+				const app = createApp(VideoExporterDialog)
+				const div = document.createElement('div')
+				document.body.appendChild(div)
+				const instance = app.mount(div)
+				clientExporterRef.value = instance
+				instance.open()
+			})
+		} else {
+			clientExporterRef.value.open()
+		}
 	}
 
 	onMounted(() => {
