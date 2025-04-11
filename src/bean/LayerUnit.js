@@ -95,7 +95,7 @@ export default class LayerUnit {
 	clone() {
 		const unit = new LayerUnit({
 			resource: this.resource.clone(),
-			scene: this.scene.clone() // 当前未实现场景克隆
+			// scene: this.scene.clone() // 当前未实现场景克隆
 		})
 		return unit;
 	}

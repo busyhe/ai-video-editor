@@ -113,7 +113,7 @@ const renderUnit = (layer, layerIndex, unit) => {
 						} else {
 							if (unit.resource.type == 'video') {
 								unit.scene.pause()
-								unit.scene.currentTime((unit.duration.start + currentTime) / 1000)
+								unit.scene.currentTime((unit.duration.left + currentTime) / 1000)
 							}
 						}
 						// 更新单元的当前帧
@@ -123,7 +123,7 @@ const renderUnit = (layer, layerIndex, unit) => {
 						unit.scene.container.visible = false
 						if (unit.resource.type == 'video') {
 							unit.scene.pause()
-							unit.scene.currentTime(unit.duration.start / 1000)
+							unit.scene.currentTime(unit.duration.left / 1000)
 						}
 					}
 				} else {
