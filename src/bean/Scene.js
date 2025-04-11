@@ -74,7 +74,7 @@ export default class Scene {
 				// 加载资源并获取纹理
 				this.texture = await loadAsset({
 					alias: this.id,
-					src: resource.url,
+					src: resource.url + '?v=' + Date.now(),
 					loadParser: getLoadParserName(resource.type)
 				})
 			}
