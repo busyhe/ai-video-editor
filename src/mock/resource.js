@@ -13,11 +13,11 @@ const RESOURCE_TYPES = {
 // Define demo data
 const generateMockMediaItems = (type, count = 3) => {
   const items = []
-  
+
   for (let i = 0; i < count; i++) {
     const id = Random.guid()
     const now = new Date().getTime()
-    
+
     // Generate appropriate data based on type
     if (type === RESOURCE_TYPES.VIDEO) {
       items.push({
@@ -28,6 +28,16 @@ const generateMockMediaItems = (type, count = 3) => {
         duration: 90000,
         url: '/assets/video/1.mp4',
         cover: '/assets/image/1.png',
+        creator: i % 2 === 0 ? Random.cname() : null,
+        createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
+      }, {
+        id,
+        name: `Demo Video ${i + 2}`,
+        type,
+        size: Random.integer(1024 * 1024, 10 * 1024 * 1024),
+        duration: 90000,
+        url: '/assets/video/2.mp4',
+        cover: '/assets/image/2.png',
         creator: i % 2 === 0 ? Random.cname() : null,
         createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
       })
@@ -58,7 +68,7 @@ const generateMockMediaItems = (type, count = 3) => {
       })
     }
   }
-  
+
   return items
 }
 
@@ -77,7 +87,7 @@ const mockFigures = Array.from({ length: 10 }, (_, i) => ({
   url: '/assets/image/1.png'
 }))
 
-export default function() {
+export default function () {
   // Mock resource list API
   Mock.mock(new RegExp('/resource/list'), 'get', (options) => {
     const url = new URL('http://example.com' + options.url)
@@ -85,56 +95,56 @@ export default function() {
     const current = parseInt(url.searchParams.get('current')) || 1
     const size = parseInt(url.searchParams.get('size')) || 10
     const keyword = url.searchParams.get('keyword') || ''
-    
+
     let totalItems = mockData[type] || []
 
     // Filter by keyword if provided
     if (keyword) {
-      totalItems = totalItems.filter(item => 
-        item.name.toLowerCase().includes(keyword.toLowerCase()) || 
+      totalItems = totalItems.filter(item =>
+        item.name.toLowerCase().includes(keyword.toLowerCase()) ||
         (item.creator && item.creator.toLowerCase().includes(keyword.toLowerCase())) ||
         (item.tags && item.tags.some(tag => tag.toLowerCase().includes(keyword.toLowerCase())))
       )
     }
-    
+
     // Handle pagination
     const startIndex = (current - 1) * size
     const endIndex = startIndex + size
     const items = totalItems.slice(startIndex, endIndex)
-    
+
     return items
   })
-  
+
   // Mock resource count API
   Mock.mock(new RegExp('/resource/count'), 'get', (options) => {
     const url = new URL('http://example.com' + options.url)
     const type = url.searchParams.get('type')
     const keyword = url.searchParams.get('keyword') || ''
-    
+
     let totalItems = mockData[type] || []
-    
+
     // Filter by keyword if provided
     if (keyword) {
-      totalItems = totalItems.filter(item => 
-        item.name.toLowerCase().includes(keyword.toLowerCase()) || 
+      totalItems = totalItems.filter(item =>
+        item.name.toLowerCase().includes(keyword.toLowerCase()) ||
         (item.creator && item.creator.toLowerCase().includes(keyword.toLowerCase())) ||
         (item.tags && item.tags.some(tag => tag.toLowerCase().includes(keyword.toLowerCase())))
       )
     }
-    
+
     return totalItems.length
   })
-  
+
   // Mock avatar list API
   Mock.mock(new RegExp('/avatar/list'), 'get', () => {
     return mockFigures
   })
-  
+
   // Mock resource save API
   Mock.mock(new RegExp('/resource/save'), 'post', (options) => {
     const { body } = options
     let data = {}
-    
+
     try {
       data = JSON.parse(body)
     } catch (e) {
@@ -152,12 +162,12 @@ export default function() {
         createTime: Date.now()
       }
     }
-    
+
     // Add to mock data
     if (data.type && mockData[data.type]) {
       // If ID exists, update instead of creating new
       const existingIndex = mockData[data.type].findIndex(item => item.id === data.id)
-      
+
       if (existingIndex >= 0) {
         mockData[data.type][existingIndex] = {
           ...mockData[data.type][existingIndex],
@@ -171,17 +181,17 @@ export default function() {
         })
       }
     }
-    
+
     return {
       success: true,
       message: 'Resource saved successfully'
     }
   })
-  
+
   // Mock resource delete API
   Mock.mock(new RegExp('/resource/del/.*'), 'post', (options) => {
     const id = options.url.split('/').pop()
-    
+
     // Remove from all collections
     Object.keys(mockData).forEach(type => {
       const index = mockData[type].findIndex(item => item.id === id)
@@ -189,25 +199,25 @@ export default function() {
         mockData[type].splice(index, 1)
       }
     })
-    
+
     return {
       success: true,
       message: 'Resource deleted successfully'
     }
   })
-  
+
   // Mock resource rename API
   Mock.mock(new RegExp('/resource/rename/.*'), 'post', (options) => {
     const id = options.url.split('/').pop()
     const { body } = options
     let data = {}
-    
+
     try {
       data = JSON.parse(body)
     } catch (e) {
       data = { name: `Renamed Resource ${Date.now()}` }
     }
-    
+
     // Update in all collections
     Object.keys(mockData).forEach(type => {
       const item = mockData[type].find(item => item.id === id)
@@ -215,42 +225,42 @@ export default function() {
         item.name = data.name
       }
     })
-    
+
     return {
       success: true,
       message: 'Resource renamed successfully'
     }
   })
-  
+
   // Mock resource search API (new endpoint)
   Mock.mock(new RegExp('/resource/search'), 'get', (options) => {
     const url = new URL('http://example.com' + options.url)
     const keyword = url.searchParams.get('keyword') || ''
     const current = parseInt(url.searchParams.get('current')) || 1
     const size = parseInt(url.searchParams.get('size')) || 10
-    
+
     if (!keyword) {
       return []
     }
-    
+
     // Search across all resource types
     let results = []
     Object.keys(mockData).forEach(type => {
-      const matches = mockData[type].filter(item => 
-        item.name.toLowerCase().includes(keyword.toLowerCase()) || 
+      const matches = mockData[type].filter(item =>
+        item.name.toLowerCase().includes(keyword.toLowerCase()) ||
         (item.creator && item.creator.toLowerCase().includes(keyword.toLowerCase())) ||
         (item.tags && item.tags.some(tag => tag.toLowerCase().includes(keyword.toLowerCase())))
       )
       results = [...results, ...matches]
     })
-    
+
     // Sort by createTime (newest first)
     results.sort((a, b) => b.createTime - a.createTime)
-    
+
     // Handle pagination
     const startIndex = (current - 1) * size
     const endIndex = startIndex + size
-    
+
     return {
       items: results.slice(startIndex, endIndex),
       total: results.length
