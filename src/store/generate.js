@@ -420,7 +420,7 @@ export const useGenerateStore = defineStore("generate", {
         const { MICROSECONDS_MULTIPLIER } = CONFIG;
         
         if (unit.type.includes('video')) {
-          const videoSprite = new OffscreenSprite(new MP4Clip(body));
+          const videoSprite = new OffscreenSprite(new MP4Clip(body, { audio: !unit.muted }));
           if (unit.anchor !== undefined) {
             videoSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
             videoSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
@@ -440,7 +440,7 @@ export const useGenerateStore = defineStore("generate", {
         } 
         
         if (unit.type.includes('audio')) {
-          const audioSprite = new OffscreenSprite(new AudioClip(body));
+          const audioSprite = new OffscreenSprite(new AudioClip(body, { volume: +!unit.muted }));
           audioSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
           audioSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
           return { sprite: audioSprite, isMain: unit.type.startsWith('main') };
@@ -496,8 +496,8 @@ export const useGenerateStore = defineStore("generate", {
         // 注册进度事件处理器
         com.on('OutputProgress', (progress) => {
           this.progress = Math.round(progress * 100);
-          console.debug('[DEBUG__progress]', this.progress);
-          
+          console.debug('[DEBUG__store/generate.js-progress]', progress, this.progress)
+
           if (messageBoxInstance) {
             updateProgressUI(this.progress);
           }

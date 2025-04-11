@@ -54,7 +54,6 @@ const generateMockMediaItems = (type, count = 3) => {
         createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
       })
     } else if (type === RESOURCE_TYPES.IMAGE) {
-      console.debug('[DEBUG__mock/resource.js-i]', i % 2)
       items.push({
         id,
         name: `Demo Image ${i + 1}`,

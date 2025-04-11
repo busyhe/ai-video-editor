@@ -36,7 +36,7 @@
 				<Hide />
 			</el-icon>
 		</el-button>
-		<el-button link size="small" v-show="data.audible" @click="data.muted=!data.muted"
+		<el-button link size="small" v-show="data.audible" @click="onToggleMuted"
 			@keydown.space.prevent="onSpace">
 			<el-icon size="14px" v-if="data.muted">
 				<font-awesome-icon icon="fa-solid fa-volume-xmark" />
@@ -89,6 +89,14 @@
 		layersDataStore.delLayerById(props.data.id)
 	}
 	const onSpace = (event) => event.preventDefault();
+
+	const onToggleMuted = () => {
+		const muted = props.data.muted
+		props.data.muted = !muted
+		props.data.units.forEach(unit => {
+			unit.muted = !muted
+		})
+	}
 </script>
 
 <style scoped>
