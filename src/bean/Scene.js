@@ -44,6 +44,8 @@ export default class Scene {
 		this.text = null; // 文本对象，用于渲染文本类型场景
 		this._initialized = false; // 初始化标志
 		this._old = null; //存储场景的历史状态数据
+		this._width = 0; // 存储媒体元素原始宽度
+		this._height = 0; // 存储媒体元素原始高度
 	}
 
 	/**
@@ -95,6 +97,9 @@ export default class Scene {
 				this.container.y = this._old.position.y
 				this.container.scale.x = this._old.scale.x
 				this.container.scale.y = this._old.scale.y
+				// 恢复宽高数据（如果有）
+				if (this._old.width) this._width = this._old.width
+				if (this._old.height) this._height = this._old.height
 			}
 			this.container.visible = false // 初始化时默认隐藏
 		}
@@ -146,7 +151,9 @@ export default class Scene {
 	 */
 	stringify() {
 		return JSON.stringify({
-			id: this.id
+			id: this.id,
+			width: this._width,
+			height: this._height
 		})
 	}
 
@@ -204,6 +211,22 @@ export default class Scene {
 	}
 
 	/**
+	 * 获取媒体元素原始宽度
+	 * @returns {Number} 宽度像素值
+	 */
+	get width() {
+		return this._width;
+	}
+
+	/**
+	 * 获取媒体元素原始高度
+	 * @returns {Number} 高度像素值
+	 */
+	get height() {
+		return this._height;
+	}
+
+	/**
 	 * 获取场景初始化状态
 	 * @returns {Boolean} 是否已初始化
 	 */
@@ -220,7 +243,9 @@ export default class Scene {
 			id: this.id,
 			timestamp: this.timestamp,
 			position: this.position,
-			scale: this.scale
+			scale: this.scale,
+			width: this._width,
+			height: this._height
 		})
 	}
 
@@ -237,7 +262,9 @@ export default class Scene {
 			scene.timestamp = data.timestamp;
 			scene._old = {
 				position: data.position,
-				scale: data.scale
+				scale: data.scale,
+				width: data.width,
+				height: data.height
 			}
 			return scene;
 		} catch (e) {
@@ -313,6 +340,11 @@ const loadImage = (app, scene, callback) => {
 	const container = new Container() // 创建PIXI容器
 	container.interactive = true // 启用交互
 	const sprite = Sprite.from(scene.texture); // 从纹理创建精灵
+	
+	// 存储原始宽高
+	scene._width = sprite.texture.orig.width;
+	scene._height = sprite.texture.orig.height;
+	
 	container.addChild(sprite) // 将精灵添加到容器
 	mountMove(app, container, callback) // 挂载移动控制
 	mountScale(app, container, callback) // 挂载缩放控制
@@ -332,6 +364,28 @@ const loadVideo = (app, scene, callback) => {
 	const container = new Container()
 	container.interactive = true
 	const sprite = Sprite.from(scene.texture);
+	
+	// 存储原始宽高
+	scene._width = sprite.texture.orig.width;
+	scene._height = sprite.texture.orig.height;
+	
+	// 对于视频，也可以从texture.source.resource获取原始尺寸
+	const videoElement = scene.texture.source.resource;
+	if (videoElement) {
+		// 如果视频加载完成，使用视频实际尺寸
+		if (videoElement.videoWidth && videoElement.videoHeight) {
+			scene._width = videoElement.videoWidth;
+			scene._height = videoElement.videoHeight;
+		}
+		
+		// 监听视频加载完成事件，确保获取到正确尺寸
+		videoElement.addEventListener('loadedmetadata', () => {
+			scene._width = videoElement.videoWidth;
+			scene._height = videoElement.videoHeight;
+			callback && callback();
+		}, { once: true });
+	}
+	
 	container.addChild(sprite)
 	mountMove(app, container, callback)
 	mountScale(app, container, callback)

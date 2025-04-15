@@ -225,6 +225,8 @@ export const useGenerateStore = defineStore("generate", {
           start: unit.duration.start,
           end: unit.duration.end,
           duration: unit.duration.duration,
+          width: unit.scene.width,
+          height: unit.scene.height,
           scale: {
             x: unit.scene.scale.x,
             y: unit.scene.scale.y,
@@ -283,6 +285,8 @@ export const useGenerateStore = defineStore("generate", {
               end: unit.duration.end,
               duration: unit.duration.duration,
               anchor: unit.duration.left,
+              width: unit.scene.width,
+              height: unit.scene.height,
               scale: {
                 x: unit.scene.scale.x,
                 y: unit.scene.scale.y,
@@ -302,6 +306,8 @@ export const useGenerateStore = defineStore("generate", {
               url: unit.resource.url,
               duration: unit.duration.duration,
               anchor: unit.duration.left,
+              width: unit.scene.width,
+              height: unit.scene.height,  
               scale: {
                 x: unit.scene.scale.x,
                 y: unit.scene.scale.y,
@@ -425,6 +431,8 @@ export const useGenerateStore = defineStore("generate", {
             videoSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
             videoSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
           }
+          videoSprite.rect.w = unit.width * unit.scale.x;
+          videoSprite.rect.h = unit.height * unit.scale.y;
           videoSprite.rect.x = unit.overlay?.x || 0;
           videoSprite.rect.y = unit.overlay?.y || 0;
           return { sprite: videoSprite, isMain: unit.type.startsWith('main') };
