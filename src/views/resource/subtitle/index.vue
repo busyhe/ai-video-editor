@@ -36,11 +36,26 @@
 								</div>
 							</div>
 						</el-button>
+						<el-button style="width: 18px;" text @click="subtitleDataStore.data.splice(index, 1)">
+							<el-icon size="18px">
+								<Delete />
+							</el-icon>
+						</el-button>
+						<el-button style="width: 18px;" text @click="insertSubtitle(index)">
+							<el-icon size="18px">
+								<Plus />
+							</el-icon>
+						</el-button>
 						<div>
 							<el-input v-model="item.text"></el-input>
 						</div>
 					</div>
 				</div>
+				<el-button @click="addSubtitle">
+					<el-icon size="20px">
+						<Plus />
+					</el-icon>
+				</el-button>
 			</div>
 			<el-button v-else class="generate-button" :loading="loading" icon="HelpFilled"
 				@click="generate">一键生成字幕</el-button>
@@ -50,120 +65,141 @@
 </template>
 
 <script setup>
-import {
-	ref,
-	onMounted,
-	watch
-} from 'vue'
-import {
-	getOptimumBatch,
-	subtitleJob
-} from '../../../api/batch.js'
-import {
-	useLayersDataStore
-} from '../../../store/layers.js'
-import {
-	useSubtitleDataStore
-} from '../../../store/data/subtitle'
-import { ElButton } from 'element-plus'
-import Timeset from './timeset.vue';
+	import {
+		ref,
+		onMounted,
+		watch
+	} from 'vue'
+	import {
+		getOptimumBatch,
+		subtitleJob
+	} from '../../../api/batch.js'
+	import {
+		useLayersDataStore
+	} from '../../../store/layers.js'
+	import {
+		useSubtitleDataStore
+	} from '../../../store/data/subtitle'
+	import {
+		ElButton
+	} from 'element-plus'
+	import Timeset from './timeset.vue';
 
-const subtitleDataStore = useSubtitleDataStore()
-const layersDataStore = useLayersDataStore()
-const loading = ref(false)
-const timesetRef = ref()
+	const subtitleDataStore = useSubtitleDataStore()
+	const layersDataStore = useLayersDataStore()
+	const loading = ref(false)
+	const timesetRef = ref()
 
-const handleUpload = async (file) => {
-	const reader = new FileReader();
-	reader.readAsText(file.raw);
-	reader.onload = (res) => {
-		subtitleDataStore.data = subtitleDataStore.formatting(reader.result)
+	const insertSubtitle = (index) => {
+		subtitleDataStore.data.splice(index, 0, {
+			text: '',
+			startTime: index == 0 ? subtitleDataStore.data.at(index).startTime - subtitleDataStore.data.at(
+				index).startTime : subtitleDataStore.data.at(index - 1).endTime,
+			endTime: subtitleDataStore.data.at(index).startTime,
+		});
 	}
-}
-const generate = async () => {
-	loading.value = true
-	const units = layersDataStore.layers
-		.filter(layer => layer.type == 'figure')
-		.reduce((previousValue, currentValue) => {
-			previousValue.push(...currentValue.units)
-			return previousValue;
-		}, [])
-		.filter(unit => unit.resource.audio != null)
-	const batch = await getOptimumBatch('SUBTITLE')
-	if (batch) {
-		const blob = await subtitleJob(batch, {
-			"samplingRate": 44100,
-			"codeRate": "192k",
-			"totalTime": 10000,
-			"audios": units.map(unit => {
-				return {
-					url: unit.resource.audio.url,
-					anchor: unit.duration.left
-				}
-			})
+
+	const addSubtitle = () => {
+		subtitleDataStore.data.push({
+			text: '',
+			startTime: subtitleDataStore.data.at(-1).endTime,
+			endTime: subtitleDataStore.data.at(-1).endTime + 1000,
 		})
-		if (blob) {
-			const reader = new FileReader()
-			reader.readAsText(blob);
-			reader.onload = (res) => {
-				subtitleDataStore.data = subtitleDataStore.formatting(reader.result)
-			}
+	}
+
+	const handleUpload = async (file) => {
+		const reader = new FileReader();
+		reader.readAsText(file.raw);
+		reader.onload = (res) => {
+			subtitleDataStore.data = subtitleDataStore.formatting(reader.result)
 		}
 	}
-	loading.value = false
-}
-
-
+	const generate = async () => {
+		loading.value = true
+		const units = layersDataStore.layers
+			.filter(layer => layer.type == 'figure')
+			.reduce((previousValue, currentValue) => {
+				previousValue.push(...currentValue.units)
+				return previousValue;
+			}, [])
+			.filter(unit => unit.resource.audio != null)
+		const batch = await getOptimumBatch('SUBTITLE')
+		if (batch) {
+			const blob = await subtitleJob(batch, {
+				"samplingRate": 44100,
+				"codeRate": "192k",
+				"totalTime": 10000,
+				"audios": units.map(unit => {
+					return {
+						url: unit.resource.audio.url,
+						anchor: unit.duration.left
+					}
+				})
+			})
+			if (blob) {
+				const reader = new FileReader()
+				reader.readAsText(blob);
+				reader.onload = (res) => {
+					subtitleDataStore.data = subtitleDataStore.formatting(reader.result)
+				}
+			}
+		}
+		loading.value = false
+	}
 </script>
 
 <style scoped>
-.subtitle {
-	height: 100%;
-}
+	.subtitle {
+		height: 100%;
+	}
 
-.header {
-	margin-bottom: 10px;
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-}
+	.header {
+		margin-bottom: 10px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
 
-.el-checkbox {
-	display: block;
-	text-align: right;
-	line-height: 32px;
-}
+	.el-checkbox {
+		display: block;
+		text-align: right;
+		line-height: 32px;
+	}
 
-.generate-button {
-	padding: 40px 60px;
-	margin: auto;
-	display: block;
-	height: auto;
-	margin-top: 60px;
-}
+	.generate-button {
+		padding: 40px 60px;
+		margin: auto;
+		display: block;
+		height: auto;
+		margin-top: 60px;
+	}
 
-.list {
-	display: flex;
-	flex-direction: column;
-}
+	.list {
+		display: flex;
+		flex-direction: column;
+	}
 
-.list .item {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
+	.list .item {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
 
-.list .item .item-number {
-	background-color: rgba(0, 0, 0, 0.2);
-	width: 32px;
-	height: 64px;
-	line-height: 64px;
-	border-radius: 4px;
-	text-align: center;
-}
+	.list .item .item-number {
+		background-color: rgba(0, 0, 0, 0.2);
+		width: 32px;
+		height: 64px;
+		line-height: 64px;
+		border-radius: 4px;
+		text-align: center;
+	}
 
-.time-quantum {
-	display: flex;
-	gap: 10px;
-}
+	.time-quantum {
+		display: flex;
+		gap: 10px;
+	}
+
+	.el-button+.el-button {
+		margin-left: 7px;
+	}
 </style>
