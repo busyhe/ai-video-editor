@@ -97,6 +97,7 @@ const renderUnit = (layer, layerIndex, unit) => {
 			if (unit.scene.initialized) {
 				// 检查图层和单元是否应该显示
 				if (layer.display && unit.display) {
+					console.log( unit );
 					const currentTime = trackStore.seekerTime - unit.duration.left
 					// 检查当前时间是否在单元的时间范围内
 					if (trackStore.seekerTime >= unit.duration.left &&
@@ -113,7 +114,8 @@ const renderUnit = (layer, layerIndex, unit) => {
 						} else {
 							if (unit.resource.type == 'video') {
 								unit.scene.pause()
-								unit.scene.currentTime((unit.duration.left + currentTime) / 1000)
+								// 计算视频当前时间：起始时间(秒) + 当前位置时间(秒)
+								unit.scene.currentTime((unit._durationStart / 1000) + (currentTime / 1000))
 							}
 						}
 						// 更新单元的当前帧
@@ -123,7 +125,8 @@ const renderUnit = (layer, layerIndex, unit) => {
 						unit.scene.container.visible = false
 						if (unit.resource.type == 'video') {
 							unit.scene.pause()
-							unit.scene.currentTime(unit.duration.left / 1000)
+							// 重置为视频起始位置
+							unit.scene.currentTime(unit._durationStart / 1000)
 						}
 					}
 				} else {
