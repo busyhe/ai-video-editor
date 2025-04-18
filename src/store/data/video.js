@@ -9,6 +9,12 @@ import {
 	filePath
 } from '../../api/file.js'
 import VideoSource from '../../bean/source/VideoSource.js'
+import {
+	useLayersDataStore
+} from '../layers.js'
+import Layer from '../../bean/Layer.js'
+import LayerUnit from '../../bean/LayerUnit.js'
+
 
 export const useVideoDataStore = defineStore('video-data', {
 	state: () => ({
@@ -17,6 +23,8 @@ export const useVideoDataStore = defineStore('video-data', {
 	}),
 	actions: {
 		async load(currentPage, pageSize) {
+			const layersDataStore = useLayersDataStore()
+
 			this.publicData.length = 0
 			this.privateData.length = 0
 			const res = await loadResource('video', currentPage, pageSize)
@@ -28,9 +36,15 @@ export const useVideoDataStore = defineStore('video-data', {
 				})
 				if (item.creator == null) {
 					this.publicData.push(video)
+
+					const unit = new LayerUnit({
+						resource: video.clone()
+					})
+					layersDataStore.addLayer(Layer.list(unit))
 				} else {
 					this.privateData.push(video)
 				}
+
 			})
 		},
 		async save({

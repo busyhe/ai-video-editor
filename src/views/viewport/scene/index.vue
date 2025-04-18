@@ -97,7 +97,6 @@ const renderUnit = (layer, layerIndex, unit) => {
 			if (unit.scene.initialized) {
 				// 检查图层和单元是否应该显示
 				if (layer.display && unit.display) {
-					console.log( unit );
 					const currentTime = trackStore.seekerTime - unit.duration.left
 					// 检查当前时间是否在单元的时间范围内
 					if (trackStore.seekerTime >= unit.duration.left &&
