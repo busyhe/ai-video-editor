@@ -89,7 +89,21 @@ const onDrag = (x, y) => {
 // 修改大小事件
 const onResize = (handle, x, y, width, height) => {
 	props.data.track.x = parseInt(x)
-	props.data.track.w = parseInt(width);
+	props.data.track.w = parseInt(width)
+	
+	// 计算时间精确值
+	if (handle === 'ml') {
+		// 左侧拖拽时，改变起始时间，总时长随之调整
+		const newStartTime = parseInt(props.data.track.x / trackStore.milliscondWidth)
+		const endTime = parseInt((props.data.track.x + props.data.track.w) / trackStore.milliscondWidth)
+		props.data._durationStart = newStartTime
+		props.data._durationEnd = endTime
+	} else if (handle === 'mr') {
+		// 右侧拖拽时，只改变结束时间
+		const endTime = parseInt((props.data.track.x + props.data.track.w) / trackStore.milliscondWidth)
+		props.data._durationEnd = endTime
+	}
+	
 	// 开启吸附
 	if (adsorptionLineStore.enable) resizeAdsorption(handle, x, width)
 }
@@ -99,15 +113,22 @@ const onResizeStop = () => {
 			const gap = props.data.track.x - adsorptionLinePosition
 			props.data.track.x = props.data.track.x - gap
 			props.data.track.w = props.data.track.w + gap
+			
+			// 重新计算精确的开始时间
+			props.data._durationStart = parseInt(props.data.track.x / trackStore.milliscondWidth)
 		} else if (adsorptionLineDirection == 'mr') {
 			const gap = adsorptionLinePosition - props.data.track.x
 			props.data.track.w = gap
+			
+			// 重新计算精确的结束时间
+			props.data._durationEnd = parseInt((props.data.track.x + props.data.track.w) / trackStore.milliscondWidth)
 		}
 	}
 	emitsDrag()
 }
 /* 触发活跃状态 */
 const onActivated = () => {
+	console.debug('[DEBUG__layer/unit.vue-props.data]', props.data)
 	layersDataStore.setUnitActive(props.data.id)
 }
 /* 触发失去活跃状态 */
