@@ -109,7 +109,7 @@ const updateProgressUI = (progress) => {
     if (progressComponent) {
       progressComponent.textContent = `${progress}%`;
     }
-    
+
     const progressBarInner = document.querySelector('.el-message-box .el-progress .el-progress-bar__inner');
     if (progressBarInner) {
       progressBarInner.style.width = `${progress}%`;
@@ -168,7 +168,7 @@ export const useGenerateStore = defineStore("generate", {
     processMainAudioLayer(layersDataStore) {
       const units = [];
       if (!layersDataStore.mainAudioLayer) return units;
-      
+
       let time = 0;
       layersDataStore.mainAudioLayer.units.forEach((unit) => {
         if (time < unit.duration.left) {
@@ -177,19 +177,19 @@ export const useGenerateStore = defineStore("generate", {
             duration: unit.duration.left - time,
           });
         }
-        
+
         units.push({
           type: "main-audio",
           url: unit.resource.url,
-          start: unit.duration.start,
+          start: unit.duration.left,
           end: unit.duration.end,
           duration: unit.duration.duration,
           muted: unit.muted
         });
-        
+
         time = unit.duration.right;
       });
-      
+
       // 填充剩余时间
       if (time < layersDataStore.videoTotalDuration) {
         units.push({
@@ -197,7 +197,7 @@ export const useGenerateStore = defineStore("generate", {
           duration: layersDataStore.videoTotalDuration - time,
         });
       }
-      
+
       return units;
     },
 
@@ -209,7 +209,7 @@ export const useGenerateStore = defineStore("generate", {
     processMainVideoLayer(layersDataStore) {
       const units = [];
       if (!layersDataStore.mainVideoLayer) return units;
-      
+
       let time = 0;
       layersDataStore.mainVideoLayer.units.forEach((unit) => {
         if (time < unit.duration.left) {
@@ -218,11 +218,11 @@ export const useGenerateStore = defineStore("generate", {
             duration: unit.duration.left - time,
           });
         }
-        
+
         units.push({
           type: "main-" + unit.type,
           url: unit.resource.url,
-          start: unit.duration.start,
+          start: unit.duration.left,
           end: unit.duration.end,
           duration: unit.duration.duration,
           width: unit.scene.width,
@@ -237,10 +237,10 @@ export const useGenerateStore = defineStore("generate", {
           },
           muted: unit.muted
         });
-        
+
         time = unit.duration.right;
       });
-      
+
       // 填充剩余时间
       if (time < layersDataStore.videoTotalDuration) {
         units.push({
@@ -248,7 +248,7 @@ export const useGenerateStore = defineStore("generate", {
           duration: layersDataStore.videoTotalDuration - time,
         });
       }
-      
+
       return units;
     },
 
@@ -268,20 +268,20 @@ export const useGenerateStore = defineStore("generate", {
             units.push({
               type: "audio",
               url: unit.resource.url,
-              start: unit.duration.start,
+              start: unit.duration.left,
               end: unit.duration.end,
               duration: unit.duration.duration,
               anchor: unit.duration.left,
             });
           });
           break;
-          
+
         case "video":
           layer.units.forEach((unit) => {
             units.push({
               type: "video",
               url: unit.resource.url,
-              start: unit.duration.start,
+              start: unit.duration.left,
               end: unit.duration.end,
               duration: unit.duration.duration,
               anchor: unit.duration.left,
@@ -298,7 +298,7 @@ export const useGenerateStore = defineStore("generate", {
             });
           });
           break;
-          
+
         case "image":
           layer.units.forEach((unit) => {
             units.push({
@@ -307,7 +307,7 @@ export const useGenerateStore = defineStore("generate", {
               duration: unit.duration.duration,
               anchor: unit.duration.left,
               width: unit.scene.width,
-              height: unit.scene.height,  
+              height: unit.scene.height,
               scale: {
                 x: unit.scene.scale.x,
                 y: unit.scene.scale.y,
@@ -319,7 +319,7 @@ export const useGenerateStore = defineStore("generate", {
             });
           });
           break;
-          
+
         case "figure":
           layer.units.forEach((unit) => {
             if (unit.resource.audio == null) {
@@ -347,7 +347,7 @@ export const useGenerateStore = defineStore("generate", {
           });
           break;
       }
-      
+
       return { units, isValid };
     },
 
@@ -360,10 +360,10 @@ export const useGenerateStore = defineStore("generate", {
     processOtherLayers(layersDataStore, check) {
       let allUnits = [];
       let isValid = true;
-      
+
       // 复制并反转图层数组（从上到下处理）
       const layers = [...layersDataStore.layers].reverse();
-      
+
       // 处理非主图层
       layers.forEach((layer) => {
         if (
@@ -375,7 +375,7 @@ export const useGenerateStore = defineStore("generate", {
           if (!layerValid) isValid = false;
         }
       });
-      
+
       return { units: allUnits, isValid };
     },
 
@@ -388,16 +388,16 @@ export const useGenerateStore = defineStore("generate", {
       if (!subtitleDataStore.visible || subtitleDataStore.data.length === 0) {
         return null;
       }
-      
+
       try {
         // 创建SRT格式的字幕内容
         const srtContent = createSrt(subtitleDataStore.data);
-        
+
         // 创建并上传SRT文件
         const blob = new Blob([srtContent], { type: "text/plain;charset=utf-8" });
         const file = new File([blob], "spacegt.srt", { type: blob.type });
         const res = await upload(file, "ai-video/source/srt");
-        
+
         return {
           url: filePath + res.url,
         };
@@ -422,22 +422,22 @@ export const useGenerateStore = defineStore("generate", {
         const res = await fetch(getAssetUrl(unit.url));
         const body = res.body;
         if (!body) return null;
-        
+
         const { MICROSECONDS_MULTIPLIER } = CONFIG;
-        
+
         if (unit.type.includes('video')) {
+          console.debug('[DEBUG__store/generate.js-unit]', unit)
           const videoSprite = new OffscreenSprite(new MP4Clip(body, { audio: !unit.muted }));
-          if (unit.anchor !== undefined) {
-            videoSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
-            videoSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
-          }
+          videoSprite.time.offset = (unit.anchor || unit.start || 0) / 1000 * MICROSECONDS_MULTIPLIER;
+          videoSprite.time.duration = unit.duration / 1000 * MICROSECONDS_MULTIPLIER;
           videoSprite.rect.w = unit.width * unit.scale.x;
           videoSprite.rect.h = unit.height * unit.scale.y;
           videoSprite.rect.x = unit.overlay?.x || 0;
           videoSprite.rect.y = unit.overlay?.y || 0;
+          console.debug('[DEBUG__store/generate.js-videoSprite]', videoSprite)
           return { sprite: videoSprite, isMain: unit.type.startsWith('main') };
-        } 
-        
+        }
+
         if (unit.type.includes('image')) {
           const imgSprite = new OffscreenSprite(new ImgClip(body));
           imgSprite.time.offset = ((unit.anchor || 0) / 1000) * MICROSECONDS_MULTIPLIER;
@@ -445,15 +445,15 @@ export const useGenerateStore = defineStore("generate", {
           imgSprite.rect.x = unit.overlay?.x || 0;
           imgSprite.rect.y = unit.overlay?.y || 0;
           return { sprite: imgSprite, isMain: unit.type.startsWith('main') };
-        } 
-        
+        }
+
         if (unit.type.includes('audio')) {
           const audioSprite = new OffscreenSprite(new AudioClip(body, { volume: +!unit.muted }));
           audioSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
           audioSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
           return { sprite: audioSprite, isMain: unit.type.startsWith('main') };
         }
-        
+
         return null;
       } catch (error) {
         console.error(`创建媒体精灵失败 (${unit.type}):`, error);
@@ -470,14 +470,14 @@ export const useGenerateStore = defineStore("generate", {
         const srtUrl = getAssetUrl('/assets/srt/1.srt');
         const text = await (await fetch(srtUrl)).text();
         const { WIDTH, HEIGHT } = CONFIG.VIDEO;
-        
+
         const srtSprite = new OffscreenSprite(
           new EmbedSubtitlesClip(text, {
             videoWidth: WIDTH,
             videoHeight: HEIGHT
           })
         );
-        
+
         return { sprite: srtSprite, isMain: false };
       } catch (error) {
         console.error('创建字幕精灵失败:', error);
@@ -493,14 +493,14 @@ export const useGenerateStore = defineStore("generate", {
     async renderAndSaveVideo(com) {
       const timeStart = performance.now();
       let fileStream;
-      
+
       try {
         fileStream = await createFileWriter('mp4');
         this.progress = 0;
-        
+
         // 显示进度对话框
         const messageBoxInstance = createProgressMessageBox();
-        
+
         // 注册进度事件处理器
         com.on('OutputProgress', (progress) => {
           this.progress = Math.round(progress * 100);
@@ -510,13 +510,13 @@ export const useGenerateStore = defineStore("generate", {
             updateProgressUI(this.progress);
           }
         });
-        
+
         // 处理输出
         await com.output().pipeTo(fileStream);
-        
+
         // 关闭消息框
         closeMessageBox();
-        
+
         // 显示完成通知
         ElNotification({
           title: '视频合成完成',
@@ -524,14 +524,14 @@ export const useGenerateStore = defineStore("generate", {
           type: 'success',
           duration: 5000,
         });
-        
+
         return true;
       } catch (error) {
         console.error('Video generation error:', error);
-        
+
         // 关闭消息框
         closeMessageBox();
-        
+
         // 显示错误通知
         ElNotification({
           title: '视频合成失败',
@@ -539,7 +539,7 @@ export const useGenerateStore = defineStore("generate", {
           type: 'error',
           duration: 5000,
         });
-        
+
         return false;
       } finally {
         console.debug('[DEBUG__render-time]', `合成耗时: ${Math.round(performance.now() - timeStart)}ms`);
@@ -579,14 +579,14 @@ export const useGenerateStore = defineStore("generate", {
 
         // 处理主音频层
         const mainAudioUnits = this.processMainAudioLayer(layersDataStore);
-        
+
         // 处理主视频层
         const mainVideoUnits = this.processMainVideoLayer(layersDataStore);
-        
+
         // 处理其他图层
         const { units: otherUnits, isValid } = this.processOtherLayers(layersDataStore, check);
         if (!isValid) check = false;
-        
+
         // 合并所有单元
         options.units = [...mainAudioUnits, ...mainVideoUnits, ...otherUnits];
 
@@ -615,7 +615,7 @@ export const useGenerateStore = defineStore("generate", {
 
           // 过滤出非空白单元
           const contentUnits = options.units.filter(unit => !unit.type.includes('blank'));
-          
+
           // 创建合成器
           const combinator = new Combinator({
             width: CONFIG.VIDEO.WIDTH,
@@ -625,17 +625,17 @@ export const useGenerateStore = defineStore("generate", {
 
           // 创建所有媒体精灵
           const spritePromises = contentUnits.map(unit => this.createSprite(unit));
-          
+
           // 添加字幕精灵
           spritePromises.push(this.createSubtitleSprite());
 
           // 等待所有精灵创建完成
           const sprites = (await Promise.all(spritePromises)).filter(Boolean);
-          
+
           // 将所有精灵添加到合成器
           for (const item of sprites) {
             if (item) {
-              await combinator.addSprite(item.sprite, { main: item.isMain });
+              await combinator.addSprite(item.sprite);
             }
           }
 
