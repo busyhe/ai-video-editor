@@ -222,6 +222,9 @@ export const useGenerateStore = defineStore("generate", {
         units.push({
           type: "main-" + unit.type,
           url: unit.resource.url,
+          _durationStart: unit._durationStart,
+          _durationEnd: unit._durationEnd,
+          originalDuration: unit.resource.duration,
           start: unit.duration.left,
           end: unit.duration.end,
           duration: unit.duration.duration,
@@ -281,6 +284,9 @@ export const useGenerateStore = defineStore("generate", {
             units.push({
               type: "video",
               url: unit.resource.url,
+              _durationStart: unit._durationStart,
+              _durationEnd: unit._durationEnd,
+              originalDuration: unit.resource.duration,
               start: unit.duration.left,
               end: unit.duration.end,
               duration: unit.duration.duration,
@@ -426,8 +432,33 @@ export const useGenerateStore = defineStore("generate", {
         const { MICROSECONDS_MULTIPLIER } = CONFIG;
 
         if (unit.type.includes('video')) {
-          console.debug('[DEBUG__store/generate.js-unit]', unit)
-          const videoSprite = new OffscreenSprite(new MP4Clip(body, { audio: !unit.muted }));
+          let mp4Clip = new MP4Clip(body, { audio: !unit.muted });
+
+          // 优化视频分割处理：合并逻辑，增加错误处理，提高效率
+          try {
+            const msToMicroFactor = MICROSECONDS_MULTIPLIER / 1000; // 毫秒转微秒的转换因子
+            
+            // 检查并处理起始时间裁剪
+            if (unit._durationStart > 0) {
+              const splitTimeMs = unit._durationStart * msToMicroFactor;
+              const [_, right] = await mp4Clip.split(splitTimeMs);
+              mp4Clip = right;
+            }
+            
+            // 检查并处理结束时间裁剪
+            const originalDuration = unit.originalDuration || 0;
+            if (unit._durationEnd < originalDuration && unit._durationEnd > 0) {
+              // 计算从起始点到结束点的持续时间
+              const durationMs = (unit._durationEnd - unit._durationStart) * msToMicroFactor;
+              const [left, _] = await mp4Clip.split(durationMs);
+              mp4Clip = left;
+            }
+          } catch (error) {
+            console.warn('视频分割处理失败，将使用完整视频:', error);
+            // 继续使用原始的mp4Clip
+          }
+
+          const videoSprite = new OffscreenSprite(mp4Clip);
           videoSprite.time.offset = (unit.anchor || unit.start || 0) / 1000 * MICROSECONDS_MULTIPLIER;
           videoSprite.time.duration = unit.duration / 1000 * MICROSECONDS_MULTIPLIER;
           videoSprite.rect.w = unit.width * unit.scale.x;
