@@ -29,7 +29,7 @@
 						</el-button>
 					</div>
 					<div class="right-option">
-						<!-- <select-scene-size></select-scene-size> -->
+						<select-scene-size></select-scene-size>
 						<!-- <select-scene-speed></select-scene-speed> -->
 						<!-- <cover></cover> -->
 						<el-button v-if="!isFullscreen" text @click="enter()">

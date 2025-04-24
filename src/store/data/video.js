@@ -37,10 +37,10 @@ export const useVideoDataStore = defineStore('video-data', {
 				if (item.creator == null) {
 					this.publicData.push(video)
 
-					const unit = new LayerUnit({
-						resource: video.clone()
-					})
-					layersDataStore.addLayer(Layer.list(unit))
+					// const unit = new LayerUnit({
+					// 	resource: video.clone()
+					// })
+					// layersDataStore.addLayer(Layer.list(unit))
 				} else {
 					this.privateData.push(video)
 				}

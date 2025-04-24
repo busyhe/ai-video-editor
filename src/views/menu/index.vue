@@ -36,12 +36,6 @@
         <div>项目管理</div>
       </Item>
     </div>
-    <div class="client-export-menu">
-      <Item @click="openClientExporter()">
-        <el-icon><Download /></el-icon>
-        <div>前端导出</div>
-      </Item>
-    </div>
     <div class="work-menu">
       <Item @click="menuStore.jobProgressDialogVisible = true">
         <svg class="icon" aria-hidden="true">

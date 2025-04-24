@@ -1,12 +1,12 @@
 <template>
 	<div class="resource-audio" ref="resourceAudioRef">
 		<div class="icon">
-			<el-button link v-if="true">
+			<el-button link @click="togglePlay" v-if="!isPlaying">
 				<el-icon size="12">
 					<font-awesome-icon icon="fa-solid fa-play" />
 				</el-icon>
 			</el-button>
-			<el-button link v-else>
+			<el-button link @click="togglePlay" v-else>
 				<el-icon size="12">
 					<font-awesome-icon icon="fa-solid fa-pause" />
 				</el-icon>
@@ -30,6 +30,7 @@
 				</svg>
 			</el-icon>
 		</div>
+		<audio ref="audioElement" :src="data.url" @ended="handleAudioEnded" @play="handleAudioPlay" @pause="handleAudioPause"></audio>
 	</div>
 </template>
 
@@ -41,10 +42,14 @@
 		useResourceDragStore
 	} from '../store/resource.js'
 	import {
+		useAudioStore
+	} from '../store/audio.js'
+	import {
 		ref,
 		reactive,
 		onMounted,
-		onBeforeUnmount
+		onBeforeUnmount,
+		watch
 	} from 'vue'
 
 	const props = defineProps({
@@ -53,8 +58,20 @@
 		active: Boolean
 	})
 	const store = useResourceDragStore()
+	const audioStore = useAudioStore()
 	const resourceAudioRef = ref()
+	const audioElement = ref(null)
+	const isPlaying = ref(false)
 	let drop = false
+
+	// Watch for changes in global audio state
+	watch(() => audioStore.currentPlayingId, (newId) => {
+		if (newId !== props.data.id && isPlaying.value) {
+			audioElement.value?.pause()
+			// Reset audio progress when paused due to playing another audio
+			audioElement.value.currentTime = 0
+		}
+	})
 
 	function handleMousedown() {
 		drop = true
@@ -70,6 +87,36 @@
 		drop = false
 	}
 
+	function togglePlay() {
+		if (audioElement.value) {
+			if (isPlaying.value) {
+				audioElement.value.pause()
+				audioStore.clearCurrentPlaying()
+				// Reset audio progress when manually paused
+				audioElement.value.currentTime = 0
+			} else {
+				// Set current playing audio before playing
+				audioStore.setCurrentPlaying(props.data.id)
+				audioElement.value.play()
+			}
+		}
+	}
+
+	function handleAudioPlay() {
+		isPlaying.value = true
+	}
+
+	function handleAudioPause() {
+		isPlaying.value = false
+	}
+
+	function handleAudioEnded() {
+		isPlaying.value = false
+		audioStore.clearCurrentPlaying()
+		// Reset audio progress when playback ends
+		audioElement.value.currentTime = 0
+	}
+
 	onMounted(() => {
 		resourceAudioRef.value.addEventListener('mousedown', handleMousedown)
 		resourceAudioRef.value.addEventListener('mouseup', handleMouseup)
@@ -80,6 +127,12 @@
 		resourceAudioRef.value.removeEventListener('mousedown', handleMousedown)
 		resourceAudioRef.value.removeEventListener('mouseup', handleMouseup)
 		resourceAudioRef.value.removeEventListener('mouseleave', handleMouseleave)
+		// Stop audio playback when component is unmounted
+		if (audioElement.value && !audioElement.value.paused) {
+			audioElement.value.pause()
+			audioStore.clearCurrentPlaying()
+			audioElement.value.currentTime = 0
+		}
 	})
 </script>
 
