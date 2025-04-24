@@ -59,7 +59,7 @@ const generateMockMediaItems = (type, count = 6) => {
         type,
         size: Random.integer(1024 * 1024, 10 * 1024 * 1024),
         duration: 90000,
-        url: '/assets/video/4.mp4',
+        url: '/assets/video/3.mp4',
         cover: '/assets/image/2.png',
         creator: i % 2 === 0 ? Random.cname() : null,
         createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
@@ -70,7 +70,7 @@ const generateMockMediaItems = (type, count = 6) => {
         type,
         size: Random.integer(1024 * 1024, 10 * 1024 * 1024),
         duration: 90000,
-        url: '/assets/video/5.mp4',
+        url: '/assets/video/2.mp4',
         cover: '/assets/image/2.png',
         creator: i % 2 === 0 ? Random.cname() : null,
         createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
@@ -81,7 +81,7 @@ const generateMockMediaItems = (type, count = 6) => {
         type,
         size: Random.integer(1024 * 1024, 10 * 1024 * 1024),
         duration: 90000,
-        url: '/assets/video/6.mp4',
+        url: '/assets/video/1.mp4',
         cover: '/assets/image/2.png',
         creator: i % 2 === 0 ? Random.cname() : null,
         createTime: now - Random.integer(0, 30 * 24 * 60 * 60 * 1000)
