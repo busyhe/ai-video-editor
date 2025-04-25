@@ -36,7 +36,7 @@
 		<!-- 资源拖动显示 -->
 		<ResourceDragging ref="resourceDraggingRef"></ResourceDragging>
 	</el-container>
-	<el-tour v-model="openTour">
+	<el-tour v-model="openTour" scroll-into-view-options="false">
 		<el-tour-step :target="headerRef?.$el" title="头部导航栏">
 			可以设置项目名称，切换主题和语言，合成视频。
 		</el-tour-step>

@@ -133,32 +133,66 @@ const onDrag = (event, index) => {
     setTimeout(() => layersDataStore.sortLayers());
   }
   viewportStore.playing = false;
+  
+  // 强制暂停所有音频
+  layersDataStore.layers.forEach(layer => {
+    layer.units.forEach(unit => {
+      if (['audio', 'figure'].includes(layer.type) && unit.resource && unit.resource.pause) {
+        unit.resource.pause();
+      }
+    });
+  });
 };
 const onDrop = (event, newIndex) => {
-  // 找出当前位置
-  let layerIndex, unitIndex;
-  for (let i = 0; i < layers.value.length; i++) {
-    const layer = layers.value[i];
-    for (let j = 0; j < layer.length; j++) {
-      if (layer.units[j].id == event.dropData.id) {
-        layerIndex = i;
-        unitIndex = j;
+  // 添加处理锁，防止递归更新
+  if (onDrop.processing) return;
+  onDrop.processing = true;
+  
+  try {
+    // 找出当前位置
+    let layerIndex, unitIndex;
+    for (let i = 0; i < layers.value.length; i++) {
+      const layer = layers.value[i];
+      for (let j = 0; j < layer.length; j++) {
+        if (layer.units[j].id == event.dropData.id) {
+          layerIndex = i;
+          unitIndex = j;
+        }
       }
     }
+    
+    // 使用nextTick和统一事务处理所有更改，减少响应式更新次数
+    nextTick(async () => {
+      try {
+        // 制作一个临时复制，避免直接修改响应式数据
+        const tempUnit = event.dropData;
+        
+        // 删除当前元素位置但不销毁，删除后加入到新的位置
+        layers.value[layerIndex].units.splice(unitIndex, 1);
+        
+        // 根据不同模式添加到新位置
+        if (event.dropMode == 'newLayer')
+          layersDataStore.insertLayer(newIndex + 1, Layer.list(tempUnit));
+        else if (event.dropMode == 'appendUnit')
+          layersDataStore.appendUnit(newIndex, tempUnit);
+        else if (event.dropMode == 'topLayer')
+          layersDataStore.insertLayer(newIndex, Layer.list(tempUnit));
+        
+        // 使用setTimeout延迟排序操作，避免在同一事件循环中连续触发更新
+        setTimeout(() => {
+          // 拖拽结束后进行坐标排序和调整
+          layersDataStore.sortLayers();
+          onDrop.processing = false;
+        }, 0);
+      } catch (error) {
+        console.error("Error in onDrop:", error);
+        onDrop.processing = false;
+      }
+    });
+  } catch (error) {
+    console.error("Error in onDrop outer try:", error);
+    onDrop.processing = false;
   }
-  // 删除当前元素位置但不销毁，删除后加入到新的位置
-  layers.value[layerIndex].units.splice(unitIndex, 1);
-  // 元素放置到新图层
-  if (event.dropMode == 'newLayer')
-    layersDataStore.insertLayer(newIndex + 1, Layer.list(event.dropData));
-  // 元素追加到现有图层
-  if (event.dropMode == 'appendUnit')
-    layersDataStore.appendUnit(newIndex, event.dropData);
-  // 元素添加顶部新图层
-  if (event.dropMode == 'topLayer')
-    layersDataStore.insertLayer(newIndex, Layer.list(event.dropData));
-  // 拖拽结束后(不选择拖拽中进行节省性能,所以拖拽中可以重合,用户体验良好)进行一个x坐标的排序，并且如果有重合调整坐标，保证友好的顺序以及不重合。
-  layersDataStore.sortLayers();
 };
 </script>
 <style scoped>

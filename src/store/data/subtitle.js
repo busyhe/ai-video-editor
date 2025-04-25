@@ -76,6 +76,7 @@ export const useSubtitleDataStore = defineStore("subtitle-data", () => {
   const loadTextContainers = (app, subtitle) => {
     if (subtitle.textContainers) {
       subtitle.textContainers.text = subtitle.text;
+      subtitle.textContainers.updateText();
       subtitle.textContainers.x =
         app.canvas.clientWidth / 2 - subtitle.textContainers.width / 2;
     } else {
