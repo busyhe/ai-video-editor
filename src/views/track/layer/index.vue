@@ -137,7 +137,7 @@ const onDrag = (event, index) => {
   // 强制暂停所有音频
   layersDataStore.layers.forEach(layer => {
     layer.units.forEach(unit => {
-      if (['audio', 'figure'].includes(layer.type) && unit.resource && unit.resource.pause) {
+      if (['audio'].includes(layer.type) && unit.resource && unit.resource.pause) {
         unit.resource.pause();
       }
     });
