@@ -17,7 +17,7 @@
 						</span>
 					</div>
 					<div class="center-option">
-						<el-button v-if="!viewportStore.playing" link @click="viewportStore.playing=true">
+						<el-button v-if="!viewportStore.playing" link @click="handlePlay">
 							<el-icon size="26">
 								<VideoPlay />
 							</el-icon>
@@ -80,11 +80,15 @@
 	import {
 		useGlobalStore
 	} from '../../store/global.js'
+	import {
+		useAudioStore
+	} from '../../store/audio.js'
 
 	const layersDataStore = useLayersDataStore()
 	const viewportStore = useViewportStore()
 	const trackStore = useTrackStore()
 	const globalStore = useGlobalStore()
+	const audioStore = useAudioStore()
 	const adaptiveSizeRef = ref()
 	const currentTime = ref(0)
 	const totalTime = ref(0)
@@ -119,6 +123,16 @@
 		if (widthScale < heightScale) viewportStore.scale = widthScale
 		else viewportStore.scale = heightScale
 	})
+
+	// Handler for play button to stop any playing audio before starting video playback
+	function handlePlay() {
+		// If there's an audio playing, clear it first
+		if (audioStore.currentPlayingId) {
+			audioStore.clearCurrentPlaying()
+		}
+		// Start video playback
+		viewportStore.playing = true
+	}
 
 	const speed = ref()
 

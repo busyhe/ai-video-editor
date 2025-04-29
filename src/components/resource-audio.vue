@@ -45,6 +45,9 @@
 		useAudioStore
 	} from '../store/audio.js'
 	import {
+		useViewportStore
+	} from '../store/viewport.js'
+	import {
 		ref,
 		reactive,
 		onMounted,
@@ -59,6 +62,7 @@
 	})
 	const store = useResourceDragStore()
 	const audioStore = useAudioStore()
+	const viewportStore = useViewportStore()
 	const resourceAudioRef = ref()
 	const audioElement = ref(null)
 	const isPlaying = ref(false)
@@ -69,6 +73,17 @@
 		if (newId !== props.data.id && isPlaying.value) {
 			audioElement.value?.pause()
 			// Reset audio progress when paused due to playing another audio
+			audioElement.value.currentTime = 0
+		}
+	})
+	
+	// Watch for changes in viewport playing state
+	watch(() => viewportStore.playing, (isPlaying) => {
+		if (isPlaying && audioElement.value && !audioElement.value.paused) {
+			// If main material starts playing, pause audio
+			audioElement.value.pause()
+			audioStore.clearCurrentPlaying()
+			// Reset audio progress
 			audioElement.value.currentTime = 0
 		}
 	})
@@ -95,6 +110,10 @@
 				// Reset audio progress when manually paused
 				audioElement.value.currentTime = 0
 			} else {
+				// Pause main material playback when playing audio
+				if (viewportStore.playing) {
+					viewportStore.playing = false
+				}
 				// Set current playing audio before playing
 				audioStore.setCurrentPlaying(props.data.id)
 				audioElement.value.play()
