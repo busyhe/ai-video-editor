@@ -172,8 +172,8 @@ const listenUnit = (layer, layerIndex, unit) => {
 				trackStore.seekerTime <= unit.duration.right) {
 				// 根据播放状态控制音频播放
 				if (viewportStore.playing) {
-					console.debug('[DEBUG__scene/index.vue-currentTime]', currentTime)
-					if (unit.resource.play) unit.resource.play(currentTime)
+					// 计算当前播放时间，考虑了音频素材的起始时间点
+					if (unit.resource.play) unit.resource.play(unit._durationStart + currentTime)
 				} else {
 					if (unit.resource.pause) unit.resource.pause()
 				}

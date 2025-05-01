@@ -181,6 +181,9 @@ export const useGenerateStore = defineStore("generate", {
         units.push({
           type: "main-audio",
           url: unit.resource.url,
+          _durationStart: unit._durationStart || 0,
+          _durationEnd: unit._durationEnd || (unit.resource.duration || 0),
+          originalDuration: unit.resource.duration || 0,
           start: unit.duration.left,
           end: unit.duration.end,
           duration: unit.duration.duration,
@@ -271,10 +274,14 @@ export const useGenerateStore = defineStore("generate", {
             units.push({
               type: "audio",
               url: unit.resource.url,
+              _durationStart: unit._durationStart || 0,
+              _durationEnd: unit._durationEnd || (unit.resource.duration || 0),
+              originalDuration: unit.resource.duration || 0,
               start: unit.duration.left,
               end: unit.duration.end,
               duration: unit.duration.duration,
               anchor: unit.duration.left,
+              muted: unit.muted || false
             });
           });
           break;
@@ -479,7 +486,33 @@ export const useGenerateStore = defineStore("generate", {
         }
 
         if (unit.type.includes('audio')) {
-          const audioSprite = new OffscreenSprite(new AudioClip(body, { volume: +!unit.muted }));
+          let audioClip = new AudioClip(body, { volume: +!unit.muted });
+
+          // 处理音频分割，类似视频分割的逻辑
+          try {
+            const msToMicroFactor = MICROSECONDS_MULTIPLIER / 1000; // 毫秒转微秒的转换因子
+            
+            // 检查并处理起始时间裁剪
+            if (unit._durationStart > 0) {
+              const splitTimeMs = unit._durationStart * msToMicroFactor;
+              const [_, right] = await audioClip.split(splitTimeMs);
+              audioClip = right;
+            }
+            
+            // 检查并处理结束时间裁剪
+            const originalDuration = unit.originalDuration || 0;
+            if (unit._durationEnd < originalDuration && unit._durationEnd > 0) {
+              // 计算从起始点到结束点的持续时间
+              const durationMs = (unit._durationEnd - unit._durationStart) * msToMicroFactor;
+              const [left, _] = await audioClip.split(durationMs);
+              audioClip = left;
+            }
+          } catch (error) {
+            console.warn('音频分割处理失败，将使用完整音频:', error);
+            // 继续使用原始的audioClip
+          }
+
+          const audioSprite = new OffscreenSprite(audioClip);
           audioSprite.time.offset = (unit.anchor || 0) * MICROSECONDS_MULTIPLIER;
           audioSprite.time.duration = unit.duration * MICROSECONDS_MULTIPLIER;
           return { sprite: audioSprite, isMain: unit.type.startsWith('main') };

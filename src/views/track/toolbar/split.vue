@@ -29,12 +29,11 @@
 	const onSplit = () => {
 		if (trackStore.seekerLocation > layersDataStore.activeUnit.track.location.left &&
 			trackStore.seekerLocation < layersDataStore.activeUnit.track.location.right) {
-			if (layersDataStore.activeUnit.resource.type == 'video') {
+			if (layersDataStore.activeUnit.resource.type == 'video' || layersDataStore.activeUnit.resource.type == 'audio') {
 				const width = trackStore.seekerLocation - layersDataStore.activeUnit.track.location.left
 				const ratio = width / layersDataStore.activeUnit.track.w
 				const newUnit = layersDataStore.activeUnit.split(ratio)
 				const layer = layersDataStore.getLayerByUnitId(layersDataStore.activeUnit.id)
-				console.debug('[DEBUG__toolbar/split.vue-newUnit]', newUnit)
 
 				nextTick(() => {
 					layer.units.push(newUnit)
@@ -43,7 +42,7 @@
 			} else {
 				ElNotification({
 					title: '提示',
-					message: '仅限于视频资源分割',
+					message: '仅限于视频和音频资源分割',
 					type: 'warning',
 				})
 			}
