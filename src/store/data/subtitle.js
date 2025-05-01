@@ -114,6 +114,14 @@ export const useSubtitleDataStore = defineStore("subtitle-data", () => {
     data.value = [];
   };
 
+  const deleteSubtitle = (index) => {
+    if (index >= 0 && index < data.value.length) {
+      const item = data.value[index];
+      if (item.textContainers) item.textContainers.destroy();
+      data.value.splice(index, 1);
+    }
+  };
+
   return {
     visible,
     data,
@@ -123,5 +131,6 @@ export const useSubtitleDataStore = defineStore("subtitle-data", () => {
     setData,
     loadTextContainers,
     clear,
+    deleteSubtitle,
   };
 });

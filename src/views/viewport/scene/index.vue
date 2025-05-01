@@ -172,6 +172,7 @@ const listenUnit = (layer, layerIndex, unit) => {
 				trackStore.seekerTime <= unit.duration.right) {
 				// 根据播放状态控制音频播放
 				if (viewportStore.playing) {
+					console.debug('[DEBUG__scene/index.vue-currentTime]', currentTime)
 					if (unit.resource.play) unit.resource.play(currentTime)
 				} else {
 					if (unit.resource.pause) unit.resource.pause()
